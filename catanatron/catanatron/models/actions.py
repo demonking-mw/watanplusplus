@@ -56,6 +56,24 @@ def generate_playable_actions(state: State) -> List[Action]:
         if state.is_road_building:
             return road_building_possibilities(state, color, False)
         actions = []
+        # Always allow ROLL (even if already rolled)
+        actions.append(Action(color, ActionType.ROLL, None))
+        
+        # Always allow ending turn
+        actions.append(Action(color, ActionType.END_TURN, None))
+        
+        # Always allow building actions (free building mode)
+        actions.extend(road_building_possibilities(state, color))
+        actions.extend(settlement_possibilities(state, color))
+        actions.extend(city_possibilities(state, color))
+
+        # Always allow buying dev cards (free building mode)
+        if len(state.development_listdeck) > 0:
+            actions.append(Action(color, ActionType.BUY_DEVELOPMENT_CARD, None))
+
+        # Always allow trading
+        actions.extend(maritime_trade_possibilities(state, color))
+        
         # Allow playing dev cards before and after rolling
         if player_can_play_dev(state, color, "YEAR_OF_PLENTY"):
             actions.extend(year_of_plenty_possibilities(color, state.resource_freqdeck))
@@ -68,29 +86,7 @@ def generate_playable_actions(state: State) -> List[Action]:
             and len(road_building_possibilities(state, color, False)) > 0
         ):
             actions.append(Action(color, ActionType.PLAY_ROAD_BUILDING, None))
-        if not player_has_rolled(state, color):
-            actions.append(Action(color, ActionType.ROLL, None))
-            # Allow buying dev cards even before rolling (free building mode)
-            if len(state.development_listdeck) > 0:
-                actions.append(Action(color, ActionType.BUY_DEVELOPMENT_CARD, None))
-            # Allow ending turn even without rolling
-            actions.append(Action(color, ActionType.END_TURN, None))
-        else:
-            actions.append(Action(color, ActionType.END_TURN, None))
-            actions.extend(road_building_possibilities(state, color))
-            actions.extend(settlement_possibilities(state, color))
-            actions.extend(city_possibilities(state, color))
-
-            # Skip resource check - allow free buying
-            can_buy_dev_card = (
-                # player_can_afford_dev_card(state, color) and
-                len(state.development_listdeck) > 0
-            )
-            if can_buy_dev_card:
-                actions.append(Action(color, ActionType.BUY_DEVELOPMENT_CARD, None))
-
-            # Trade
-            actions.extend(maritime_trade_possibilities(state, color))
+        
         return actions
     elif action_prompt == ActionPrompt.DISCARD:
         return discard_possibilities(color)

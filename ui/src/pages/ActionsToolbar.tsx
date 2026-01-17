@@ -75,9 +75,8 @@ function PlayButtons() {
     return null;
   }
   const key = playerKey(gameState, gameState.current_color);
-  const isRoll =
-    gameState.current_prompt === "PLAY_TURN" &&
-    !gameState.player_state[`${key}_HAS_ROLLED`];
+  // Always allow ending turn - no need to check if rolled
+  const isRoll = false; // Never force roll - always show END button
   const isDiscard = gameState.current_prompt === "DISCARD";
   const isMoveRobber = gameState.current_prompt === "MOVE_ROBBER";
 
@@ -239,10 +238,9 @@ function PlayButtons() {
     },
   ];
 
-  // Check if player can trade (has rolled and it's their turn)
+  // Always allow trading (no roll requirement)
   const canTrade = 
     !gameState.is_initial_build_phase &&
-    gameState.player_state[`${key}_HAS_ROLLED`] &&
     !isPlayingDevCard;
 
   const setIsMovingRobber = useCallback(() => {
@@ -340,8 +338,6 @@ function PlayButtons() {
             ? setIsMovingRobber
             : isPlayingYearOfPlenty || isPlayingMonopoly
             ? handleOpenResourceSelector
-            : isRoll
-            ? rollAction
             : endTurnAction
         }
       >
@@ -351,8 +347,6 @@ function PlayButtons() {
           ? "ROB"
           : isPlayingYearOfPlenty || isPlayingMonopoly
           ? "SELECT"
-          : isRoll
-          ? "ROLL"
           : "END"}
       </Button>
       <ResourceSelector
