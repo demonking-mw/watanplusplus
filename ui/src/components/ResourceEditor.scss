@@ -1,0 +1,168 @@
+.resource-editor {
+  // Use temporary variant so it overlays other drawers
+  .MuiDrawer-paper {
+    width: 320px;
+    max-width: 90vw; // Responsive on mobile
+    padding: 16px;
+    background: rgba(30, 30, 30, 0.98);
+    color: white;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.5);
+  }
+
+  .resource-editor-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    .editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+
+      .editor-title {
+        color: white;
+        font-weight: bold;
+        margin: 0;
+      }
+
+      .editor-actions {
+        display: flex;
+        gap: 8px;
+
+        .cancel-btn {
+          color: white;
+          border-color: rgba(255, 255, 255, 0.5);
+          &:hover {
+            border-color: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.1);
+          }
+        }
+
+        .save-btn {
+          background: #4caf50;
+          color: white;
+          &:hover {
+            background: #45a049;
+          }
+        }
+      }
+    }
+
+    .player-editor-section {
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+
+      &.current-player {
+        border-color: #fff;
+        background: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
+      }
+
+      &.red {
+        border-left: 4px solid #d32f2f;
+      }
+      &.blue {
+        border-left: 4px solid #1976d2;
+      }
+      &.orange {
+        border-left: 4px solid #f57c00;
+      }
+      &.white {
+        border-left: 4px solid #f5f5f5;
+      }
+
+      .player-name {
+        color: white;
+        font-weight: bold;
+        margin-bottom: 8px;
+      }
+
+        .resource-control {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+          &:last-child {
+            border-bottom: none;
+          }
+
+          .resource-label {
+            color: rgba(255, 255, 255, 0.9);
+            flex: 1;
+            min-width: 80px;
+          }
+
+          .resource-input-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+
+            .MuiIconButton-root {
+              color: white;
+              background: rgba(255, 255, 255, 0.1);
+              border: 1px solid rgba(255, 255, 255, 0.2);
+              padding: 4px;
+
+              &:hover {
+                background: rgba(255, 255, 255, 0.2);
+              }
+
+              &:disabled {
+                opacity: 0.3;
+              }
+
+              &.plus-btn {
+                &:hover {
+                  background: rgba(76, 175, 80, 0.3);
+                }
+              }
+
+              &.minus-btn {
+                &:hover {
+                  background: rgba(244, 67, 54, 0.3);
+                }
+              }
+            }
+
+            .resource-input {
+              width: 70px;
+              
+              .MuiOutlinedInput-root {
+                background: rgba(255, 255, 255, 0.1);
+                color: white;
+                border-color: rgba(255, 255, 255, 0.3);
+
+                &:hover {
+                  border-color: rgba(255, 255, 255, 0.5);
+                }
+
+                &.Mui-focused {
+                  border-color: rgba(255, 255, 255, 0.8);
+                }
+
+                input {
+                  color: white;
+                  text-align: center;
+                  padding: 6px 8px;
+                  font-weight: bold;
+                }
+              }
+
+              &.has-change {
+                .MuiOutlinedInput-root {
+                  border-color: #4caf50;
+                  background: rgba(76, 175, 80, 0.1);
+                }
+              }
+            }
+          }
+        }
+    }
+  }
+}

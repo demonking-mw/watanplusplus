@@ -12,6 +12,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import BuildIcon from "@mui/icons-material/Build";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
+import EditIcon from "@mui/icons-material/Edit";
 import MenuItem from "@mui/material/MenuItem";
 import ClickAwayListener from "@mui/material/ClickAwayListener";
 import Grow from "@mui/material/Grow";
@@ -340,9 +341,11 @@ function PlayButtons() {
 export default function ActionsToolbar({
   isBotThinking,
   replayMode,
+  onToggleResourceEditor,
 }: {
   isBotThinking: boolean;
   replayMode: boolean;
+  onToggleResourceEditor?: () => void;
 }) {
   const { state, dispatch } = useContext(store);
   const { gameState } = state;
@@ -374,21 +377,51 @@ export default function ActionsToolbar({
             <ChevronLeftIcon />
           </Button>
         </Hidden>
-        {humanColor && (
-          <ResourceCards
-            playerState={gameState.player_state}
-            playerKey={playerKey(gameState, humanColor)}
-          />
-        )}
-        <Hidden breakpoint={{ size: "lg", direction: "up" }}>
-          <Button
-            className="open-drawer-btn"
-            onClick={openRightDrawer}
-            style={{ marginLeft: "auto" }}
-          >
-            <ChevronRightIcon />
-          </Button>
-        </Hidden>
+        <div className="all-players-resources">
+          {gameState.colors.map((color) => {
+            const key = playerKey(gameState, color);
+            const isCurrentPlayer = color === gameState.current_color;
+            return (
+              <div
+                key={color}
+                className={`player-resource-container ${color.toLowerCase()} ${isCurrentPlayer ? 'current-player' : ''}`}
+              >
+                <div className="player-color-label">{color}</div>
+                <ResourceCards
+                  playerState={gameState.player_state}
+                  playerKey={key}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: "8px", marginLeft: "auto" }}>
+          {onToggleResourceEditor && (
+            <Button
+              className="editor-toggle-btn"
+              onClick={onToggleResourceEditor}
+              title="Open Resource Editor"
+              variant="outlined"
+              size="small"
+              style={{ 
+                color: "white", 
+                borderColor: "rgba(255, 255, 255, 0.5)",
+                minWidth: "auto",
+                padding: "4px 8px"
+              }}
+            >
+              <EditIcon fontSize="small" />
+            </Button>
+          )}
+          <Hidden breakpoint={{ size: "lg", direction: "up" }}>
+            <Button
+              className="open-drawer-btn"
+              onClick={openRightDrawer}
+            >
+              <ChevronRightIcon />
+            </Button>
+          </Hidden>
+        </div>
       </div>
       <div className="actions-toolbar">
         {!(botsTurn || gameState.winning_color) && !replayMode && (

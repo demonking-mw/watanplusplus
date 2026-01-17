@@ -62,8 +62,24 @@ def database_session():
 
 
 def upsert_game_state(game: Game, session_param=None):
+    """
+    Upsert (update or insert) game state.
+    If a state with the same uuid and state_index exists, it will be deleted first.
+    """
+    from catanatron.state_functions import get_state_index
     game_state = GameState.from_game(game)
     session = session_param or db.session
+    
+    # Delete any existing state with the same uuid and state_index
+    # This ensures we don't have duplicate states with the same state_index
+    existing = (
+        session.query(GameState)
+        .filter_by(uuid=game.id, state_index=get_state_index(game.state))
+        .first()
+    )
+    if existing:
+        session.delete(existing)
+    
     session.add(game_state)
     session.commit()
     return game_state

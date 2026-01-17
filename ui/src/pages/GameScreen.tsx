@@ -10,6 +10,7 @@ import ActionsToolbar from "./ActionsToolbar";
 import "./GameScreen.scss";
 import LeftDrawer from "../components/LeftDrawer";
 import RightDrawer from "../components/RightDrawer";
+import ResourceEditor from "../components/ResourceEditor";
 import { store } from "../store";
 import ACTIONS from "../actions";
 import { type StateIndex, getState, postAction } from "../utils/apiClient";
@@ -25,6 +26,7 @@ function GameScreen({ replayMode }: { replayMode: boolean }) {
   const { state, dispatch } = useContext(store);
   const { enqueueSnackbar, closeSnackbar } = useSnackbar();
   const [isBotThinking, setIsBotThinking] = useState(false);
+  const [isResourceEditorOpen, setIsResourceEditorOpen] = useState(false);
 
   // Load game state
   useEffect(() => {
@@ -88,12 +90,21 @@ function GameScreen({ replayMode }: { replayMode: boolean }) {
     <main>
       <h1 className="logo">Catanatron</h1>
       <ZoomableBoard replayMode={replayMode} />
-      <ActionsToolbar isBotThinking={isBotThinking} replayMode={replayMode} />
+      <ActionsToolbar 
+        isBotThinking={isBotThinking} 
+        replayMode={replayMode}
+        onToggleResourceEditor={() => setIsResourceEditorOpen(!isResourceEditorOpen)}
+      />
       <LeftDrawer />
       <RightDrawer>
         <AnalysisBox stateIndex={"latest"}/>
         <Divider />
       </RightDrawer>
+      <ResourceEditor 
+        open={isResourceEditorOpen} 
+        onClose={() => setIsResourceEditorOpen(false)}
+        anchor="left"
+      />
     </main>
   );
 }
