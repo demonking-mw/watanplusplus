@@ -1,0 +1,51 @@
+.discard-dialog {
+  .MuiDialog-paper {
+    background-color: #1e1e1e;
+    color: #ffffff;
+  }
+
+  .MuiDialogTitle-root {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .MuiDialogContent-root {
+    color: #ffffff;
+  }
+
+  .MuiButton-root {
+    &.MuiButton-contained {
+      background-color: #1976d2;
+      color: #ffffff;
+
+      &:hover {
+        background-color: #1565c0;
+      }
+
+      &:disabled {
+        background-color: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.3);
+      }
+    }
+
+    &.MuiButton-text {
+      color: rgba(255, 255, 255, 0.7);
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+    }
+  }
+
+  .MuiIconButton-root {
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    &:disabled {
+      opacity: 0.3;
+    }
+  }
+}

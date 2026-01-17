@@ -103,6 +103,8 @@ def post_action_endpoint(game_id):
                 logging.info(f"Received CONFIRM_TRADE action: color={action.color}, value={action.value}, value_type={type(action.value)}, value_len={len(action.value) if action.value else 0}")
             elif action.action_type == ActionType.MARITIME_TRADE:
                 logging.info(f"Received MARITIME_TRADE action: color={action.color}, value={action.value}, value_type={type(action.value)}, value_len={len(action.value) if action.value else 0}")
+            elif action.action_type == ActionType.DISCARD:
+                logging.info(f"Received DISCARD action: color={action.color}, value={action.value}, value_type={type(action.value)}, value_len={len(action.value) if action.value else 0}, current_color={game.state.current_color()}, current_prompt={game.state.current_prompt}")
             game.execute(action)
             upsert_game_state(game)
         except Exception as e:
@@ -193,6 +195,11 @@ def update_resources_batch_endpoint(game_id):
                 game.state.resource_freqdeck[resource_index] = max(
                     0, game.state.resource_freqdeck[resource_index] - difference
                 )
+        
+        # Regenerate playable actions after resource changes
+        # This ensures the Buy button and other actions reflect the updated resource counts
+        from catanatron.models.actions import generate_playable_actions
+        game.playable_actions = generate_playable_actions(game.state)
         
         # Save the updated state - upsert_game_state will replace any existing state with the same state_index
         # This ensures manual resource edits persist even when other players take actions

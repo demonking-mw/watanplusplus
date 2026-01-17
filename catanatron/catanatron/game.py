@@ -106,6 +106,68 @@ def is_valid_action(playable_actions, state: State, action: Action) -> bool:
         
         return True
     
+    # Special handling for DISCARD actions: allow manual resource selection
+    # If there's a DISCARD action in playable_actions, accept any DISCARD action
+    # as long as the resource list is valid (None or list of valid resources)
+    if action.action_type == ActionType.DISCARD:
+        # Check if DISCARD is a playable action
+        has_discard_action = any(
+            a.action_type == ActionType.DISCARD and a.color == action.color 
+            for a in playable_actions
+        )
+        if not has_discard_action:
+            import logging
+            logging.warning(f"DISCARD action not in playable_actions for {action.color}")
+            return False
+        
+        # Validate that it's the current player's turn and they need to discard
+        if not (state.current_color() == action.color
+                and state.current_prompt == ActionPrompt.DISCARD):
+            import logging
+            logging.warning(f"DISCARD validation failed: current_color={state.current_color()}, action.color={action.color}, current_prompt={state.current_prompt}")
+            return False
+        
+        # Validate resource list if provided
+        if action.value is not None:
+            if not isinstance(action.value, (tuple, list)):
+                import logging
+                logging.warning(f"DISCARD value is not a list/tuple: {type(action.value)}")
+                return False
+            from catanatron.models.enums import RESOURCES
+            # Check all resources in the list are valid
+            for resource in action.value:
+                if resource not in RESOURCES:
+                    import logging
+                    logging.warning(f"Invalid resource in DISCARD: {resource}, valid resources: {RESOURCES}")
+                    return False
+            # Check that the number of resources matches what should be discarded
+            from catanatron.state_functions import player_deck_to_array
+            hand = player_deck_to_array(state, action.color)
+            num_to_discard = len(hand) // 2
+            if len(action.value) != num_to_discard:
+                import logging
+                logging.warning(f"DISCARD count mismatch: expected {num_to_discard}, got {len(action.value)}")
+                return False
+            # Check that player actually has these resources
+            from catanatron.state_functions import player_key
+            key = player_key(state, action.color)
+            resource_counts = {
+                'WOOD': state.player_state.get(f"{key}_WOOD_IN_HAND", 0),
+                'BRICK': state.player_state.get(f"{key}_BRICK_IN_HAND", 0),
+                'SHEEP': state.player_state.get(f"{key}_SHEEP_IN_HAND", 0),
+                'WHEAT': state.player_state.get(f"{key}_WHEAT_IN_HAND", 0),
+                'ORE': state.player_state.get(f"{key}_ORE_IN_HAND", 0),
+            }
+            from collections import Counter
+            discard_counts = Counter(action.value)
+            for resource, count in discard_counts.items():
+                if resource not in resource_counts or resource_counts[resource] < count:
+                    import logging
+                    logging.warning(f"Player doesn't have enough {resource}: has {resource_counts.get(resource, 0)}, trying to discard {count}")
+                    return False
+        
+        return True
+    
     # Special handling for ROLL actions: allow manual dice selection
     # If there's a ROLL action in playable_actions, accept any ROLL action
     # as long as the dice values are valid (None or tuple of 2 ints between 1-6)

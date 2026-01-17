@@ -65,6 +65,15 @@ def action_from_json(data) -> Action:
             action = Action(color, action_type, tuple(data[2]))
         else:
             action = Action(color, action_type, data[2])
+    elif action_type == ActionType.DISCARD:
+        # DISCARD can have None (random) or a list of resources to discard
+        if data[2] is None:
+            action = Action(color, action_type, None)
+        elif isinstance(data[2], (list, tuple)):
+            # Manual discard selection: list of resources
+            action = Action(color, action_type, tuple(data[2]))
+        else:
+            action = Action(color, action_type, data[2])
     else:
         action = Action(color, action_type, data[2])
     return action

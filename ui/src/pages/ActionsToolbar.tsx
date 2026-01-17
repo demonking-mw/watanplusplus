@@ -29,6 +29,7 @@ import ResourceCards from "../components/ResourceCards";
 import ResourceSelector from "../components/ResourceSelector";
 import DiceSelector from "../components/DiceSelector";
 import TradeDialog from "../components/TradeDialog";
+import DiscardDialog from "../components/DiscardDialog";
 import { store } from "../store";
 import ACTIONS from "../actions";
 import type { GameAction, ResourceCard } from "../utils/api.types"; // Add GameState to the import, adjust path if needed
@@ -51,6 +52,7 @@ function PlayButtons() {
   const [resourceSelectorOpen, setResourceSelectorOpen] = useState(false);
   const [diceSelectorOpen, setDiceSelectorOpen] = useState(false);
   const [tradeDialogOpen, setTradeDialogOpen] = useState(false);
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
 
   const carryOutAction = useCallback(
     (action?: GameAction) => async () => {
@@ -76,6 +78,15 @@ function PlayButtons() {
     !gameState.player_state[`${key}_HAS_ROLLED`];
   const isDiscard = gameState.current_prompt === "DISCARD";
   const isMoveRobber = gameState.current_prompt === "MOVE_ROBBER";
+
+  // Auto-open discard dialog when discard prompt appears
+  useEffect(() => {
+    if (isDiscard && !discardDialogOpen) {
+      setDiscardDialogOpen(true);
+    } else if (!isDiscard && discardDialogOpen) {
+      setDiscardDialogOpen(false);
+    }
+  }, [isDiscard, discardDialogOpen]);
   const isPlayingDevCard =
     isPlayingMonopoly || isPlayingYearOfPlenty || isRoadBuilding;
   const playableDevCardTypes = new Set(
@@ -292,7 +303,7 @@ function PlayButtons() {
         startIcon={<NavigateNextIcon />}
         onClick={
           isDiscard
-            ? proceedAction
+            ? () => setDiscardDialogOpen(true)
             : isMoveRobber
             ? setIsMovingRobber
             : isPlayingYearOfPlenty || isPlayingMonopoly
@@ -331,6 +342,10 @@ function PlayButtons() {
       <TradeDialog
         open={tradeDialogOpen}
         onClose={() => setTradeDialogOpen(false)}
+      />
+      <DiscardDialog
+        open={discardDialogOpen}
+        onClose={() => setDiscardDialogOpen(false)}
       />
     </>
   );

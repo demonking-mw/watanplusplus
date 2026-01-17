@@ -26,7 +26,7 @@ export type GameActionRecord =
   | [EndTurnAction, null];
 
 export type RollGameAction = [Color, "ROLL", null | [number, number]];
-export type DiscardGameAction = [Color, "DISCARD", null];
+export type DiscardGameAction = [Color, "DISCARD", null | ResourceCard[]];
 export type BuyDevelopmentCardAction = [Color, "BUY_DEVELOPMENT_CARD", null];
 export type BuildSettlementAction = [Color, "BUILD_SETTLEMENT", number];
 export type BuildCityAction = [Color, "BUILD_CITY", number];

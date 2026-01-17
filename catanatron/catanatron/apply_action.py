@@ -318,11 +318,16 @@ def apply_roll(state: State, action: Action, action_record=None):
 def apply_discard(state: State, action: Action, action_record=None):
     hand = player_deck_to_array(state, action.color)
     num_to_discard = len(hand) // 2
-    if action_record is None:
-        # TODO: Forcefully discard randomly so that decision tree doesnt explode in possibilities.
-        discarded = random.sample(hand, k=num_to_discard)
-    else:
+    
+    # If action.value is provided (list of resources to discard), use it
+    if action.value is not None and isinstance(action.value, (list, tuple)):
+        discarded = list(action.value)
+    elif action_record is not None:
         discarded = action_record.result  # for replay functionality
+    else:
+        # Fallback to random discard if no selection provided (for bots)
+        discarded = random.sample(hand, k=num_to_discard)
+    
     to_discard = freqdeck_from_listdeck(discarded)
 
     player_freqdeck_subtract(state, action.color, to_discard)
