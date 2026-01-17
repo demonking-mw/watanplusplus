@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@mui/material";
 import { GridLoader } from "react-spinners";
-import { createGame } from "../utils/apiClient";
+import { createGame, type BoardConfig } from "../utils/apiClient";
+import BoardEditor from "../components/BoardEditor";
 
 import "./HomePage.scss";
 
@@ -35,17 +36,36 @@ function getPlayers(gameMode: GameModeType, numPlayers: number) {
   }
 }
 
+type BoardType = "random" | "custom";
+
 export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [numPlayers, setNumPlayers] = useState(2);
+  const [boardType, setBoardType] = useState<BoardType>("random");
+  const [showBoardEditor, setShowBoardEditor] = useState(false);
+  const [customBoardConfig, setCustomBoardConfig] = useState<any>(null);
   const navigate = useNavigate();
 
   const handleCreateGame = async (gameMode: GameModeType) => {
     setLoading(true);
     const players = getPlayers(gameMode, numPlayers);
-    const gameId = await createGame(players);
+    const gameId = await createGame(players, boardType === "custom" ? customBoardConfig : undefined);
     setLoading(false);
     navigate("/games/" + gameId);
+  };
+
+  const handleBoardTypeChange = (type: BoardType) => {
+    setBoardType(type);
+    if (type === "custom") {
+      setShowBoardEditor(true);
+    } else {
+      setCustomBoardConfig(null);
+    }
+  };
+
+  const handleBoardSave = (config: BoardConfig) => {
+    setCustomBoardConfig(config);
+    setShowBoardEditor(false);
   };
 
   return (
@@ -72,13 +92,42 @@ export default function HomePage() {
                 ))}
               </div>
             </div>
+            <div className="board-type-selector" style={{ marginTop: "20px", marginBottom: "20px" }}>
+              <div className="player-count-label">Board Type</div>
+              <div className="player-count-buttons">
+                <Button
+                  variant={boardType === "random" ? "contained" : "outlined"}
+                  onClick={() => handleBoardTypeChange("random")}
+                  className={`player-count-button ${
+                    boardType === "random" ? "selected" : ""
+                  }`}
+                >
+                  Random
+                </Button>
+                <Button
+                  variant={boardType === "custom" ? "contained" : "outlined"}
+                  onClick={() => handleBoardTypeChange("custom")}
+                  className={`player-count-button ${
+                    boardType === "custom" ? "selected" : ""
+                  }`}
+                >
+                  Custom
+                </Button>
+              </div>
+            </div>
             <Button
               variant="contained"
               color="primary"
               onClick={() => handleCreateGame(GameMode.LOCAL_MULTIPLAYER)}
+              disabled={boardType === "custom" && !customBoardConfig}
             >
               Play
             </Button>
+            <BoardEditor
+              open={showBoardEditor}
+              onClose={() => setShowBoardEditor(false)}
+              onSave={handleBoardSave}
+            />
           </>
         ) : (
           <GridLoader

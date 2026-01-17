@@ -6,8 +6,17 @@ import type { Color, GameAction, GameState } from "./api.types";
 type Player = "HUMAN" | "RANDOM" | "CATANATRON";
 export type StateIndex = number | `${number}` | "latest";
 
-export async function createGame(players: Player[]) {
-  const response = await axios.post(API_URL + "/api/games", { players });
+export type BoardConfig = {
+  numbers?: number[];
+  port_resources?: (string | null)[];
+  tile_resources?: (string | null)[];
+};
+
+export async function createGame(players: Player[], boardConfig?: BoardConfig) {
+  const response = await axios.post(API_URL + "/api/games", { 
+    players,
+    board_config: boardConfig 
+  });
   return response.data.game_id;
 }
 

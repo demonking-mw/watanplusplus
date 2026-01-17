@@ -58,7 +58,80 @@ def post_game_endpoint():
     player_keys = request.json["players"]
     players = list(map(player_factory, zip(player_keys, Color)))
 
-    game = Game(players=players)
+    # Handle custom board configuration
+    board_config = request.json.get("board_config")
+    catan_map = None
+    if board_config:
+        try:
+            from catanatron.models.map import CatanMap, BASE_MAP_TEMPLATE, initialize_tiles
+            
+            # Extract configuration
+            numbers = board_config.get("numbers")
+            port_resources = board_config.get("port_resources")
+            tile_resources = board_config.get("tile_resources")
+            
+            # Validate counts - must match exactly
+            if numbers is not None and len(numbers) != len(BASE_MAP_TEMPLATE.numbers):
+                logging.error(f"Invalid numbers count: {len(numbers)} expected {len(BASE_MAP_TEMPLATE.numbers)}")
+                raise ValueError(f"Invalid numbers count: {len(numbers)} expected {len(BASE_MAP_TEMPLATE.numbers)}")
+            
+            if tile_resources is not None and len(tile_resources) != len(BASE_MAP_TEMPLATE.tile_resources):
+                logging.error(f"Invalid tile_resources count: {len(tile_resources)} expected {len(BASE_MAP_TEMPLATE.tile_resources)}")
+                raise ValueError(f"Invalid tile_resources count: {len(tile_resources)} expected {len(BASE_MAP_TEMPLATE.tile_resources)}")
+            
+            if port_resources is not None and len(port_resources) != len(BASE_MAP_TEMPLATE.port_resources):
+                logging.error(f"Invalid port_resources count: {len(port_resources)} expected {len(BASE_MAP_TEMPLATE.port_resources)}")
+                raise ValueError(f"Invalid port_resources count: {len(port_resources)} expected {len(BASE_MAP_TEMPLATE.port_resources)}")
+            
+            # Convert port resources from strings to FastResource enums or None
+            port_resources_enum = None
+            if port_resources:
+                from catanatron.models.enums import FastResource
+                port_resources_enum = []
+                for port in port_resources:
+                    if port is None:
+                        port_resources_enum.append(None)
+                    else:
+                        try:
+                            port_resources_enum.append(FastResource[port])
+                        except KeyError:
+                            logging.warning(f"Invalid port resource: {port}, using None")
+                            port_resources_enum.append(None)
+            
+            # Convert tile resources from strings to FastResource enums or None
+            tile_resources_enum = None
+            if tile_resources:
+                from catanatron.models.enums import FastResource
+                tile_resources_enum = []
+                for tile in tile_resources:
+                    if tile is None:
+                        tile_resources_enum.append(None)
+                    else:
+                        try:
+                            tile_resources_enum.append(FastResource[tile])
+                        except KeyError:
+                            logging.warning(f"Invalid tile resource: {tile}, using None")
+                            tile_resources_enum.append(None)
+            
+            # Create copies of lists since initialize_tiles uses .pop() which consumes them
+            numbers_copy = list(numbers) if numbers else None
+            port_resources_enum_copy = list(port_resources_enum) if port_resources_enum else None
+            tile_resources_enum_copy = list(tile_resources_enum) if tile_resources_enum else None
+            
+            # Create custom map
+            tiles = initialize_tiles(
+                BASE_MAP_TEMPLATE,
+                shuffled_numbers_param=numbers_copy,
+                shuffled_port_resources_param=port_resources_enum_copy,
+                shuffled_tile_resources_param=tile_resources_enum_copy,
+            )
+            catan_map = CatanMap.from_tiles(tiles)
+        except Exception as e:
+            logging.error(f"Error creating custom board: {str(e)}", exc_info=True)
+            # Fall back to random board if custom board creation fails
+            catan_map = None
+
+    game = Game(players=players, catan_map=catan_map)
     upsert_game_state(game)
     return jsonify({"game_id": game.id})
 
