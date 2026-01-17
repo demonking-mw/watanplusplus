@@ -125,8 +125,24 @@ export default function ZoomableBoard({ replayMode }: ZoomableBoardProps) {
   const handleTileClick = useCallback(
     memoize((coordinate: TileCoordinate) => {
       console.log("Clicked Tile ", coordinate);
-      if (state.isMovingRobber) {
-        // Find the "MOVE_ROBBER" action in current_playable_actions that
+      if (state.isFreeMovingRobber) {
+        // Free rob mode: move robber to any tile without game logic restrictions
+        const humanColor = !gameState.bot_colors.includes(gameState.current_color) 
+          ? gameState.current_color 
+          : gameState.colors.find(color => !gameState.bot_colors.includes(color)) || gameState.colors[0];
+        const freeRobAction: GameAction = [
+          humanColor,
+          "MOVE_ROBBER",
+          [coordinate, null] // null means don't steal from anyone
+        ];
+        postAction(gameId, freeRobAction).then((updatedGameState) => {
+          dispatch({ type: ACTIONS.SET_GAME_STATE, data: updatedGameState });
+          dispatch({ type: ACTIONS.SET_IS_FREE_MOVING_ROBBER }); // Turn off free rob mode after moving
+        }).catch((error) => {
+          console.error("Error moving robber:", error);
+        });
+      } else if (state.isMovingRobber) {
+        // Normal rob mode: Find the "MOVE_ROBBER" action in current_playable_actions that
         // corresponds to the tile coordinate selected by the user
         const matchingAction = gameState.current_playable_actions.find(
           ([, action_type, [action_coordinate, ,]]) =>
@@ -134,13 +150,13 @@ export default function ZoomableBoard({ replayMode }: ZoomableBoardProps) {
             action_coordinate.every((val: number, index: number) => val === coordinate[index])
         );
         if (matchingAction) {
-          postAction(gameId, matchingAction).then((gameState) => {
-            dispatch({ type: ACTIONS.SET_GAME_STATE, data: gameState });
+          postAction(gameId, matchingAction).then((updatedGameState) => {
+            dispatch({ type: ACTIONS.SET_GAME_STATE, data: updatedGameState });
           });
         }
       }
     }),
-    [state.isMovingRobber]
+    [state.isMovingRobber, state.isFreeMovingRobber, gameState, gameId, dispatch]
   );
 
   const nodeActions = replayMode ? {} : buildNodeActions(state);
@@ -171,6 +187,7 @@ export default function ZoomableBoard({ replayMode }: ZoomableBoardProps) {
             gameState={gameState}
             isMobile={isMobile}
             isMovingRobber={state.isMovingRobber}
+            isFreeMovingRobber={state.isFreeMovingRobber}
           />
         </TransformComponent>
       </div>

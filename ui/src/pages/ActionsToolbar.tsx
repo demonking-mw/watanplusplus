@@ -14,6 +14,7 @@ import BuildIcon from "@mui/icons-material/Build";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import EditIcon from "@mui/icons-material/Edit";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
+import GavelIcon from "@mui/icons-material/Gavel";
 import MenuItem from "@mui/material/MenuItem";
 import ClickAwayListener from "@mui/material/ClickAwayListener";
 import Grow from "@mui/material/Grow";
@@ -241,6 +242,10 @@ function PlayButtons() {
     dispatch({ type: ACTIONS.SET_IS_MOVING_ROBBER });
   }, [dispatch]);
   
+  const setIsFreeMovingRobber = useCallback(() => {
+    dispatch({ type: ACTIONS.SET_IS_FREE_MOVING_ROBBER });
+  }, [dispatch]);
+  
   const handleDiceSelection = useCallback(
     (diceValue: [number, number] | null) => {
       // Use current_color to ensure we're using the correct player for this turn
@@ -295,6 +300,14 @@ function PlayButtons() {
         onClick={() => setTradeDialogOpen(true)}
       >
         Trade
+      </Button>
+      <Button
+        variant={state.isFreeMovingRobber ? "contained" : "outlined"}
+        color={state.isFreeMovingRobber ? "secondary" : "primary"}
+        startIcon={<GavelIcon />}
+        onClick={setIsFreeMovingRobber}
+      >
+        {state.isFreeMovingRobber ? "Rob (Click Tile)" : "Rob"}
       </Button>
       <Button
         disabled={gameState.is_initial_build_phase || isRoadBuilding}

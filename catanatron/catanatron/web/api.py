@@ -108,7 +108,28 @@ def post_action_endpoint(game_id):
                 logging.info(f"Received MARITIME_TRADE action: color={action.color}, value={action.value}, value_type={type(action.value)}, value_len={len(action.value) if action.value else 0}")
             elif action.action_type == ActionType.DISCARD:
                 logging.info(f"Received DISCARD action: color={action.color}, value={action.value}, value_type={type(action.value)}, value_len={len(action.value) if action.value else 0}, current_color={game.state.current_color()}, current_prompt={game.state.current_prompt}")
-            game.execute(action)
+            elif action.action_type == ActionType.MOVE_ROBBER:
+                logging.info(f"Received MOVE_ROBBER action: color={action.color}, value={action.value}, coordinate={action.value[0] if action.value else None}")
+            
+            # Check if this is a free robber move (not in playable actions)
+            # Free robber moves bypass validation to allow moving robber anywhere
+            is_free_robber_move = False
+            if action.action_type == ActionType.MOVE_ROBBER:
+                # Check if this exact action is in playable_actions
+                action_in_playable = any(
+                    a.action_type == ActionType.MOVE_ROBBER and
+                    a.color == action.color and
+                    a.value == action.value
+                    for a in game.playable_actions
+                )
+                is_free_robber_move = not action_in_playable
+            
+            if is_free_robber_move:
+                # Bypass validation for free robber moves
+                logging.info("Free robber move detected - bypassing validation")
+                game.execute(action, validate_action=False)
+            else:
+                game.execute(action)
             upsert_game_state(game)
         except Exception as e:
             logging.error(f"Error processing action: {str(e)}", exc_info=True)
