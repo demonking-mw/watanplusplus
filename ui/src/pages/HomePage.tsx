@@ -55,10 +55,6 @@ export default function HomePage() {
       <div className="switchable">
         {!loading ? (
           <>
-            <ul>
-              <li>OPEN HAND</li>
-              <li>NO CHOICE DURING DISCARD</li>
-            </ul>
             <div className="player-count-selector">
               <div className="player-count-label">Number of Players</div>
               <div className="player-count-buttons">
@@ -81,28 +77,7 @@ export default function HomePage() {
               color="primary"
               onClick={() => handleCreateGame(GameMode.LOCAL_MULTIPLAYER)}
             >
-              Play with My Friends
-            </Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={() => handleCreateGame(GameMode.HUMAN_VS_CATANATRON)}
-            >
-              Play against Catanatron
-            </Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={() => handleCreateGame(GameMode.RANDOM_BOTS)}
-            >
-              Watch Random Bots
-            </Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={() => handleCreateGame(GameMode.CATANATRON_BOTS)}
-            >
-              Watch Catanatron
+              Play
             </Button>
           </>
         ) : (

@@ -11,7 +11,10 @@ from catanatron.models.enums import ActionType
 from catanatron.game import Game
 from catanatron.players.value import ValueFunctionPlayer
 from catanatron.players.minimax import AlphaBetaPlayer
-from catanatron.web.mcts_analysis import GameAnalyzer
+try:
+    from catanatron.web.mcts_analysis import GameAnalyzer
+except ImportError:
+    GameAnalyzer = None
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -286,6 +289,9 @@ def update_resources_endpoint(game_id):
 )
 def mcts_analysis_endpoint(game_id, state_index):
     """Get MCTS analysis for specific game state."""
+    if GameAnalyzer is None:
+        abort(501, description="MCTS analysis not available")
+    
     logging.info(f"MCTS analysis request for game {game_id} at state {state_index}")
 
     # Convert 'latest' to None for consistency with get_game_state
