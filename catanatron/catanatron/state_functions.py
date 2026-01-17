@@ -232,10 +232,11 @@ def player_resource_freqdeck_contains(state: State, color, freqdeck):
 
 def player_can_play_dev(state: State, color, dev_card):
     key = player_key(state, color)
+    # Allow playing dev cards in the same turn they are bought
+    # Removed the OWNED_AT_START check to allow immediate use
     return (
         not state.player_state[f"{key}_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN"]
         and state.player_state[f"{key}_{dev_card}_IN_HAND"] >= 1
-        and state.player_state[f"{key}_{dev_card}_OWNED_AT_START"]
     )
 
 

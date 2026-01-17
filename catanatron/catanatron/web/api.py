@@ -217,7 +217,7 @@ def update_resources_batch_endpoint(game_id):
         if not isinstance(changes, list):
             abort(400, description="Missing or invalid 'changes' array")
         
-        from catanatron.models.enums import RESOURCES
+        from catanatron.models.enums import RESOURCES, DEVELOPMENT_CARDS
         from catanatron.state_functions import player_key
         
         # Process all changes
@@ -237,30 +237,33 @@ def update_resources_batch_endpoint(game_id):
             except KeyError:
                 continue  # Skip invalid colors
             
-            if resource_str not in RESOURCES:
-                continue  # Skip invalid resources
+            # Validate that resource_str is either a valid resource or development card
+            if resource_str not in RESOURCES and resource_str not in DEVELOPMENT_CARDS:
+                continue  # Skip invalid resources/dev cards
             
-            # Update the resource count directly
+            # Update the resource/development card count directly
             key = player_key(game.state, color)
-            resource_key = f"{key}_{resource_str}_IN_HAND"
+            item_key = f"{key}_{resource_str}_IN_HAND"
             
-            # Calculate the difference to update the bank
-            old_amount = game.state.player_state.get(resource_key, 0)
+            # Calculate the difference
+            old_amount = game.state.player_state.get(item_key, 0)
             difference = amount - old_amount
             
             # Update player's hand
-            game.state.player_state[resource_key] = amount
+            game.state.player_state[item_key] = amount
             
-            # Update the bank (add resources back to bank if decreasing, remove if increasing)
-            resource_index = RESOURCES.index(resource_str)
-            if difference < 0:
-                # Player lost resources, add to bank
-                game.state.resource_freqdeck[resource_index] += abs(difference)
-            elif difference > 0:
-                # Player gained resources, remove from bank (if available)
-                game.state.resource_freqdeck[resource_index] = max(
-                    0, game.state.resource_freqdeck[resource_index] - difference
-                )
+            # Update the bank only for resources (not development cards)
+            if resource_str in RESOURCES:
+                resource_index = RESOURCES.index(resource_str)
+                if difference < 0:
+                    # Player lost resources, add to bank
+                    game.state.resource_freqdeck[resource_index] += abs(difference)
+                elif difference > 0:
+                    # Player gained resources, remove from bank (if available)
+                    game.state.resource_freqdeck[resource_index] = max(
+                        0, game.state.resource_freqdeck[resource_index] - difference
+                    )
+            # For development cards, we don't update the bank (they're managed separately)
         
         # Regenerate playable actions after resource changes
         # This ensures the Buy button and other actions reflect the updated resource counts

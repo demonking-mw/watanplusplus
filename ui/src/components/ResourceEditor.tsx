@@ -16,7 +16,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import { store } from "../store";
 import ACTIONS from "../actions";
 import { playerKey } from "../utils/stateUtils";
-import type { Color, ResourceCard } from "../utils/api.types";
+import type { Color, ResourceCard, DevelopmentCard } from "../utils/api.types";
 import { API_URL } from "../configuration";
 import { useParams } from "react-router-dom";
 import axios from "axios";
@@ -30,6 +30,7 @@ type ResourceEditorProps = {
 };
 
 const RESOURCES: ResourceCard[] = ["WOOD", "BRICK", "SHEEP", "WHEAT", "ORE"];
+const DEVELOPMENT_CARDS: DevelopmentCard[] = ["KNIGHT", "MONOPOLY", "YEAR_OF_PLENTY", "ROAD_BUILDING", "VICTORY_POINT"];
 
 type ResourceChanges = {
   [color: string]: {
@@ -62,7 +63,7 @@ export default function ResourceEditor({
     return null;
   }
 
-  const getCurrentValue = (color: Color, resource: ResourceCard): number => {
+  const getCurrentValue = (color: Color, resource: ResourceCard | DevelopmentCard): number => {
     const key = playerKey(gameState, color);
     const originalAmount = (gameState.player_state[`${key}_${resource}_IN_HAND`] as number) || 0;
     
@@ -76,7 +77,7 @@ export default function ResourceEditor({
 
   const handleResourceChange = (
     color: Color,
-    resource: ResourceCard,
+    resource: ResourceCard | DevelopmentCard,
     delta: number
   ) => {
     const currentValue = getCurrentValue(color, resource);
@@ -94,7 +95,7 @@ export default function ResourceEditor({
 
   const handleDirectInput = (
     color: Color,
-    resource: ResourceCard,
+    resource: ResourceCard | DevelopmentCard,
     value: string
   ) => {
     // If empty, don't update (user is still typing)
@@ -125,10 +126,10 @@ export default function ResourceEditor({
       const response = await axios.post<typeof gameState>(
         `${API_URL}/api/games/${gameId}/resources/batch`,
         {
-          changes: Object.entries(pendingChanges).flatMap(([color, resources]) =>
-            Object.entries(resources).map(([resource, amount]) => ({
+          changes: Object.entries(pendingChanges).flatMap(([color, items]) =>
+            Object.entries(items).map(([item, amount]) => ({
               color,
-              resource,
+              resource: item, // Backend will handle both resources and dev cards
               amount,
             }))
           ),
@@ -206,6 +207,9 @@ export default function ResourceEditor({
                 {color} {isCurrentPlayer && "← Current"}
               </Typography>
               <Divider style={{ margin: "8px 0" }} />
+              <Typography variant="subtitle2" className="section-title" style={{ marginTop: "8px", marginBottom: "8px", fontWeight: "bold" }}>
+                Resources
+              </Typography>
               {RESOURCES.map((resource) => {
                 const amount = getCurrentValue(color, resource);
                 const hasPendingChange = pendingChanges[color] && pendingChanges[color][resource] !== undefined;
@@ -238,6 +242,50 @@ export default function ResourceEditor({
                       <IconButton
                         size="small"
                         onClick={() => handleResourceChange(color, resource, 1)}
+                        className="plus-btn"
+                      >
+                        <AddIcon />
+                      </IconButton>
+                    </div>
+                  </div>
+                );
+              })}
+              <Divider style={{ margin: "12px 0" }} />
+              <Typography variant="subtitle2" className="section-title" style={{ marginTop: "8px", marginBottom: "8px", fontWeight: "bold" }}>
+                Development Cards
+              </Typography>
+              {DEVELOPMENT_CARDS.map((devCard) => {
+                const amount = getCurrentValue(color, devCard);
+                const hasPendingChange = pendingChanges[color] && pendingChanges[color][devCard] !== undefined;
+                return (
+                  <div key={devCard} className="resource-control">
+                    <Typography variant="body2" className="resource-label">
+                      {devCard.replace(/_/g, " ")}
+                    </Typography>
+                    <div className="resource-input-group">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleResourceChange(color, devCard, -1)}
+                        disabled={amount <= 0}
+                        className="minus-btn"
+                      >
+                        <RemoveIcon />
+                      </IconButton>
+                      <TextField
+                        type="number"
+                        value={amount}
+                        onChange={(e) => handleDirectInput(color, devCard, e.target.value)}
+                        inputProps={{
+                          min: 0,
+                          style: { textAlign: "center", padding: "4px 8px" },
+                        }}
+                        size="small"
+                        className={`resource-input ${hasPendingChange ? "has-change" : ""}`}
+                        variant="outlined"
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => handleResourceChange(color, devCard, 1)}
                         className="plus-btn"
                       >
                         <AddIcon />

@@ -336,7 +336,7 @@ function PlayButtons() {
   return (
     <>
       <OptionsButton
-        disabled={playableDevCardTypes.size === 0 || isPlayingDevCard}
+        disabled={isPlayingDevCard}
         menuListId="use-menu-list"
         icon={<SimCardIcon />}
         items={useItems}
