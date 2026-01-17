@@ -429,10 +429,17 @@ def apply_maritime_trade(state: State, action: Action):
     trade_offer = action.value
     offering = freqdeck_from_listdeck(filter(lambda r: r is not None, trade_offer[:-1]))
     asking = freqdeck_from_listdeck(trade_offer[-1:])
+    
+    import logging
+    logging.info(f"apply_maritime_trade: color={action.color}, trade_offer={trade_offer}, offering={offering}, asking={asking}")
+    logging.info(f"Player resources: {[state.player_state.get(f'{player_key(state, action.color)}_{r}_IN_HAND', 0) for r in ['WOOD', 'BRICK', 'SHEEP', 'WHEAT', 'ORE']]}")
+    logging.info(f"Bank resources: {state.resource_freqdeck}")
+    
     if not player_resource_freqdeck_contains(state, action.color, offering):
-        raise ValueError("Trying to trade without money")
+        raise ValueError(f"Trying to trade without money. Player needs {offering} but doesn't have enough")
     if not freqdeck_contains(state.resource_freqdeck, asking):
-        raise ValueError("Bank doenst have those cards")
+        raise ValueError(f"Bank doesn't have those cards. Bank has {state.resource_freqdeck}, asking for {asking}")
+    
     player_freqdeck_subtract(state, action.color, offering)
     state.resource_freqdeck = freqdeck_add(state.resource_freqdeck, offering)
     player_freqdeck_add(state, action.color, asking)
@@ -446,6 +453,10 @@ def apply_maritime_trade(state: State, action: Action):
 def apply_offer_trade(state: State, action: Action):
     state.is_resolving_trade = True
     state.current_trade = (*action.value, state.current_turn_index)
+
+    # Immediately deduct the offering resources from the player
+    offering = action.value[:5]
+    player_freqdeck_subtract(state, action.color, offering)
 
     # go in seating order; order won't matter because of "acceptees hook"
     state.current_player_index = next(
@@ -491,6 +502,14 @@ def apply_reject_trade(state: State, action: Action):
     except StopIteration:
         # if no acceptees at this point, go back to PLAY_TURN
         if sum(state.acceptees) == 0:
+            # Restore the offering resources to the offerer since no one accepted
+            if state.is_resolving_trade and state.current_trade:
+                offering = state.current_trade[:5]
+                offerer_index = state.current_trade[10]
+                if offerer_index < len(state.colors):
+                    offerer_color = state.colors[offerer_index]
+                    player_freqdeck_add(state, offerer_color, offering)
+            
             reset_trading_state(state)
 
             state.current_player_index = state.current_turn_index
@@ -508,7 +527,25 @@ def apply_confirm_trade(state: State, action: Action):
     offering = action.value[:5]
     asking = action.value[5:10]
     enemy_color = action.value[10]
-    player_freqdeck_subtract(state, action.color, offering)
+    
+    # Validate that both players have enough resources
+    from catanatron.state_functions import player_resource_freqdeck_contains
+    if not player_resource_freqdeck_contains(state, action.color, offering):
+        raise ValueError(f"Player {action.color} doesn't have enough resources to offer")
+    if not player_resource_freqdeck_contains(state, enemy_color, asking):
+        raise ValueError(f"Player {enemy_color} doesn't have enough resources for this trade")
+    
+    # Check if this is a direct trade (not coming from OFFER_TRADE flow)
+    # If is_resolving_trade is False, this is a direct trade and we need to deduct from offerer
+    # If is_resolving_trade is True, resources were already deducted in apply_offer_trade
+    if not state.is_resolving_trade:
+        # Direct trade: deduct from offerer, then complete the exchange
+        player_freqdeck_subtract(state, action.color, offering)
+    
+    # Complete the trade exchange:
+    # 1. Add receiving resources to offerer
+    # 2. Subtract receiving resources from accepter
+    # 3. Add offering resources to accepter
     player_freqdeck_add(state, action.color, asking)
     player_freqdeck_subtract(state, enemy_color, asking)
     player_freqdeck_add(state, enemy_color, offering)
@@ -521,6 +558,15 @@ def apply_confirm_trade(state: State, action: Action):
 
 
 def apply_cancel_trade(state: State, action: Action):
+    # Restore the offering resources to the offerer if trade is cancelled
+    if state.is_resolving_trade and state.current_trade:
+        offering = state.current_trade[:5]
+        # The offerer is stored in current_trade[10] as the turn index
+        offerer_index = state.current_trade[10]
+        if offerer_index < len(state.colors):
+            offerer_color = state.colors[offerer_index]
+            player_freqdeck_add(state, offerer_color, offering)
+    
     reset_trading_state(state)
 
     state.current_player_index = state.current_turn_index

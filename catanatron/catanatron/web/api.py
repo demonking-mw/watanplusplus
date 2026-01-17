@@ -96,9 +96,13 @@ def post_action_endpoint(game_id):
         try:
             logging.info(f"Received request.json: {request.json}")
             action = action_from_json(request.json)
-            # Debug logging for dice rolls
+            # Debug logging for actions
             if action.action_type == ActionType.ROLL:
                 logging.info(f"Received ROLL action with value: {action.value}, type: {type(action.value)}")
+            elif action.action_type == ActionType.CONFIRM_TRADE:
+                logging.info(f"Received CONFIRM_TRADE action: color={action.color}, value={action.value}, value_type={type(action.value)}, value_len={len(action.value) if action.value else 0}")
+            elif action.action_type == ActionType.MARITIME_TRADE:
+                logging.info(f"Received MARITIME_TRADE action: color={action.color}, value={action.value}, value_type={type(action.value)}, value_len={len(action.value) if action.value else 0}")
             game.execute(action)
             upsert_game_state(game)
         except Exception as e:

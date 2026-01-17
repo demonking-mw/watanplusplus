@@ -1,0 +1,90 @@
+.trade-dialog {
+  .MuiDialog-paper {
+    background: rgba(30, 30, 30, 0.98);
+    color: white;
+  }
+
+  .MuiDialogTitle-root {
+    color: white;
+  }
+
+  .MuiDialogContent-root {
+    color: white;
+  }
+
+  .bank-trade,
+  .player-trade {
+    .MuiFormControl-root {
+      .MuiInputLabel-root {
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      .MuiOutlinedInput-root {
+        color: white;
+        border-color: rgba(255, 255, 255, 0.3);
+
+        &:hover {
+          border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        &.Mui-focused {
+          border-color: rgba(255, 255, 255, 0.8);
+        }
+      }
+
+      .MuiSelect-select {
+        color: white;
+      }
+    }
+
+    .MuiTextField-root {
+      .MuiOutlinedInput-root {
+        color: white;
+        border-color: rgba(255, 255, 255, 0.3);
+
+        &:hover {
+          border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        &.Mui-focused {
+          border-color: rgba(255, 255, 255, 0.8);
+        }
+      }
+
+      .MuiInputLabel-root {
+        color: rgba(255, 255, 255, 0.7);
+      }
+    }
+  }
+
+  .trade-response {
+    .trade-details {
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      margin: 16px 0;
+    }
+  }
+
+  .trade-select-partner {
+    .partner-button {
+      display: block;
+      width: 100%;
+      margin: 8px 0;
+    }
+  }
+
+  .MuiTabs-root {
+    .MuiTab-root {
+      color: rgba(255, 255, 255, 0.7);
+
+      &.Mui-selected {
+        color: white;
+      }
+    }
+
+    .MuiTabs-indicator {
+      background-color: white;
+    }
+  }
+}

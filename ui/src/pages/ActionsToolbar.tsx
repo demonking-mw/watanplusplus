@@ -13,6 +13,7 @@ import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import BuildIcon from "@mui/icons-material/Build";
 import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import EditIcon from "@mui/icons-material/Edit";
+import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import MenuItem from "@mui/material/MenuItem";
 import ClickAwayListener from "@mui/material/ClickAwayListener";
 import Grow from "@mui/material/Grow";
@@ -27,6 +28,7 @@ import Prompt from "../components/Prompt";
 import ResourceCards from "../components/ResourceCards";
 import ResourceSelector from "../components/ResourceSelector";
 import DiceSelector from "../components/DiceSelector";
+import TradeDialog from "../components/TradeDialog";
 import { store } from "../store";
 import ACTIONS from "../actions";
 import type { GameAction, ResourceCard } from "../utils/api.types"; // Add GameState to the import, adjust path if needed
@@ -48,6 +50,7 @@ function PlayButtons() {
   const { enqueueSnackbar, closeSnackbar } = useSnackbar();
   const [resourceSelectorOpen, setResourceSelectorOpen] = useState(false);
   const [diceSelectorOpen, setDiceSelectorOpen] = useState(false);
+  const [tradeDialogOpen, setTradeDialogOpen] = useState(false);
 
   const carryOutAction = useCallback(
     (action?: GameAction) => async () => {
@@ -217,21 +220,11 @@ function PlayButtons() {
     },
   ];
 
-  const tradeActions = gameState.current_playable_actions.filter(
-    (action) => action[1] === "MARITIME_TRADE"
-  );
-  const tradeItems = React.useMemo(() => {
-    const items = tradeActions.map((action) => {
-      const label = humanizeTradeAction(action);
-      return {
-        label: label,
-        disabled: false,
-        onClick: carryOutAction(action),
-      };
-    });
-
-    return items.sort((a, b) => a.label.localeCompare(b.label));
-  }, [tradeActions, carryOutAction]);
+  // Check if player can trade (has rolled and it's their turn)
+  const canTrade = 
+    !gameState.is_initial_build_phase &&
+    gameState.player_state[`${key}_HAS_ROLLED`] &&
+    !isPlayingDevCard;
 
   const setIsMovingRobber = useCallback(() => {
     dispatch({ type: ACTIONS.SET_IS_MOVING_ROBBER });
@@ -283,14 +276,15 @@ function PlayButtons() {
       >
         Buy
       </OptionsButton>
-      <OptionsButton
-        disabled={tradeItems.length === 0 || isPlayingDevCard}
-        menuListId="trade-menu-list"
-        icon={<AccountBalanceIcon />}
-        items={tradeItems}
+      <Button
+        disabled={!canTrade}
+        variant="contained"
+        color="primary"
+        startIcon={<SwapHorizIcon />}
+        onClick={() => setTradeDialogOpen(true)}
       >
         Trade
-      </OptionsButton>
+      </Button>
       <Button
         disabled={gameState.is_initial_build_phase || isRoadBuilding}
         variant="contained"
@@ -333,6 +327,10 @@ function PlayButtons() {
         open={diceSelectorOpen}
         onClose={() => setDiceSelectorOpen(false)}
         onSelect={handleDiceSelection}
+      />
+      <TradeDialog
+        open={tradeDialogOpen}
+        onClose={() => setTradeDialogOpen(false)}
       />
     </>
   );

@@ -79,6 +79,29 @@ export function humanizeActionRecord(
       const label = humanizeTradeAction(action as MaritimeTradeAction);
       return `${player} TRADED ${label}`;
     }
+    case "OFFER_TRADE": {
+      const tradeValue = action[2] as [number, number, number, number, number, number, number, number, number, number];
+      const giving = tradeValue.slice(0, 5);
+      const receiving = tradeValue.slice(5, 10);
+      const givingStr = humanizeResourceFreqdeck(giving);
+      const receivingStr = humanizeResourceFreqdeck(receiving);
+      return `${player} OFFERED TRADE: ${givingStr} for ${receivingStr}`;
+    }
+    case "CONFIRM_TRADE": {
+      const tradeValue = action[2] as [number, number, number, number, number, number, number, number, number, number, string];
+      const giving = tradeValue.slice(0, 5);
+      const receiving = tradeValue.slice(5, 10);
+      const otherPlayer = tradeValue[10];
+      const givingStr = humanizeResourceFreqdeck(giving);
+      const receivingStr = humanizeResourceFreqdeck(receiving);
+      return `${player} TRADED WITH ${otherPlayer}: ${givingStr} for ${receivingStr}`;
+    }
+    case "ACCEPT_TRADE":
+      return `${player} ACCEPTED TRADE`;
+    case "REJECT_TRADE":
+      return `${player} REJECTED TRADE`;
+    case "CANCEL_TRADE":
+      return `${player} CANCELLED TRADE`;
     case "END_TURN":
       return `${player} ENDED TURN`;
     default:
@@ -90,6 +113,17 @@ export function humanizeTradeAction(action: MaritimeTradeAction): string {
     .slice(0, 4)
     .filter((resource: unknown) => resource !== null);
   return `${out.length} ${out[0]} => ${action[2][4]}`;
+}
+
+function humanizeResourceFreqdeck(freqdeck: number[]): string {
+  const resources = ["WOOD", "BRICK", "SHEEP", "WHEAT", "ORE"];
+  const parts: string[] = [];
+  for (let i = 0; i < freqdeck.length; i++) {
+    if (freqdeck[i] > 0) {
+      parts.push(`${freqdeck[i]} ${resources[i]}`);
+    }
+  }
+  return parts.length > 0 ? parts.join(", ") : "nothing";
 }
 
 export function findTileByCoordinate(gameState: GameState, coordinate: any) {

@@ -38,6 +38,24 @@ def action_from_json(data) -> Action:
     elif action_type == ActionType.MARITIME_TRADE:
         value = tuple(data[2])
         action = Action(color, action_type, value)
+    elif action_type == ActionType.OFFER_TRADE:
+        value = tuple(data[2])
+        action = Action(color, action_type, value)
+    elif action_type == ActionType.ACCEPT_TRADE:
+        value = tuple(data[2])
+        action = Action(color, action_type, value)
+    elif action_type == ActionType.REJECT_TRADE:
+        value = tuple(data[2])
+        action = Action(color, action_type, value)
+    elif action_type == ActionType.CONFIRM_TRADE:
+        value_list = list(data[2])
+        # Last element is the accepting player color
+        if len(value_list) == 11:
+            value_list[10] = Color[value_list[10]] if isinstance(value_list[10], str) else value_list[10]
+        value = tuple(value_list)
+        action = Action(color, action_type, value)
+    elif action_type == ActionType.CANCEL_TRADE:
+        action = Action(color, action_type, None)
     elif action_type == ActionType.ROLL:
         # ROLL can have None (random) or [die1, die2] (manual selection)
         if data[2] is None:

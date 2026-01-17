@@ -49,6 +49,27 @@ export type MaritimeTradeAction = [
   "MARITIME_TRADE",
   (ResourceCard | null)[]
 ];
+export type OfferTradeAction = [
+  Color,
+  "OFFER_TRADE",
+  [number, number, number, number, number, number, number, number, number, number]
+];
+export type AcceptTradeAction = [
+  Color,
+  "ACCEPT_TRADE",
+  [number, number, number, number, number, number, number, number, number, number, number]
+];
+export type RejectTradeAction = [
+  Color,
+  "REJECT_TRADE",
+  [number, number, number, number, number, number, number, number, number, number, number]
+];
+export type ConfirmTradeAction = [
+  Color,
+  "CONFIRM_TRADE",
+  [number, number, number, number, number, number, number, number, number, number, Color]
+];
+export type CancelTradeAction = [Color, "CANCEL_TRADE", null];
 export type EndTurnAction = [Color, "END_TURN", null];
 
 export type GameAction =
@@ -64,6 +85,11 @@ export type GameAction =
   | PlayYearOfPlentyAction
   | MoveRobberAction
   | MaritimeTradeAction
+  | OfferTradeAction
+  | AcceptTradeAction
+  | RejectTradeAction
+  | ConfirmTradeAction
+  | CancelTradeAction
   | EndTurnAction;
 
 export type PlayerState = any;
@@ -126,6 +152,9 @@ export type GameState = {
   edgeActions?: GameAction[];
   nodeActions?: GameAction[];
   state_index: number;
+  is_resolving_trade?: boolean;
+  current_trade?: [number, number, number, number, number, number, number, number, number, number, number];
+  acceptees?: boolean[];
 };
 const DIRECTIONS = [
   "NORTH",

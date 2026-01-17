@@ -30,6 +30,82 @@ def is_valid_action(playable_actions, state: State, action: Action) -> bool:
             and is_valid_trade(action.value)
         )
     
+    # Special handling for CONFIRM_TRADE: allow direct trades (bypassing offer/accept flow)
+    if action.action_type == ActionType.CONFIRM_TRADE:
+        if not (state.current_color() == action.color
+                and state.current_prompt == ActionPrompt.PLAY_TURN
+                and player_has_rolled(state, action.color)):
+            return False
+        
+        # Validate trade value structure (11-tuple: first 10 are resources, last is Color)
+        if not isinstance(action.value, (tuple, list)) or len(action.value) != 11:
+            return False
+        
+        # Validate the trade itself (first 10 elements)
+        trade_value = action.value[:10]
+        if not is_valid_trade(trade_value):
+            return False
+        
+        # Validate that the enemy color is valid
+        enemy_color = action.value[10]
+        # enemy_color should already be a Color enum from JSON parsing
+        # But handle both cases for safety
+        if isinstance(enemy_color, str):
+            from catanatron.models.player import Color
+            try:
+                enemy_color_enum = Color[enemy_color]
+            except KeyError:
+                return False
+        else:
+            enemy_color_enum = enemy_color
+        
+        # Check if enemy is a valid player and not the same as offerer
+        if enemy_color_enum not in state.colors or enemy_color_enum == action.color:
+            return False
+        
+        return True
+    
+    # Special handling for MARITIME_TRADE: allow custom bank trades
+    # If there's a MARITIME_TRADE action in playable_actions, accept any valid MARITIME_TRADE
+    if action.action_type == ActionType.MARITIME_TRADE:
+        # Check basic conditions: current player's turn, has rolled, correct prompt
+        if not (state.current_color() == action.color
+                and state.current_prompt == ActionPrompt.PLAY_TURN
+                and player_has_rolled(state, action.color)):
+            return False
+        
+        # Check if MARITIME_TRADE is a playable action (any maritime trade available)
+        has_maritime_trade = any(
+            a.action_type == ActionType.MARITIME_TRADE and a.color == action.color 
+            for a in playable_actions
+        )
+        if not has_maritime_trade:
+            return False
+        
+        # Validate trade value structure (5-tuple: first 4 are giving resources, last is receiving)
+        if not isinstance(action.value, (tuple, list)) or len(action.value) != 5:
+            return False
+        
+        # Validate that the receiving resource is valid
+        receiving_resource = action.value[4]
+        if receiving_resource is None:
+            return False
+        
+        # Validate that giving resources are valid (can be None for port trades)
+        giving_resources = action.value[:4]
+        from catanatron.models.enums import RESOURCES
+        for resource in giving_resources:
+            if resource is not None and resource not in RESOURCES:
+                return False
+        if receiving_resource not in RESOURCES:
+            return False
+        
+        # Check that at least one resource is being given
+        if all(r is None for r in giving_resources):
+            return False
+        
+        return True
+    
     # Special handling for ROLL actions: allow manual dice selection
     # If there's a ROLL action in playable_actions, accept any ROLL action
     # as long as the dice values are valid (None or tuple of 2 ints between 1-6)
