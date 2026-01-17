@@ -141,6 +141,9 @@ export default function ResourceEditor({
       // Reset changes
       setPendingChanges({});
       setHasChanges(false);
+      
+      // Auto-close the editor after successful save
+      onClose();
     } catch (error) {
       console.error("Error saving resources:", error);
     }

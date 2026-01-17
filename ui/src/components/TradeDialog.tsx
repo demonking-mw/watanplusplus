@@ -245,6 +245,11 @@ export default function TradeDialog({ open, onClose }: TradeDialogProps) {
   const hasEnoughForPlayerTrade = RESOURCES.every(
     (resource) => getPlayerResourceCount(currentPlayerColor, resource) >= playerGiveResources[resource]
   );
+  
+  // Check if any input exceeds available resources
+  const hasExcessiveInput = RESOURCES.some(
+    (resource) => playerGiveResources[resource] > getPlayerResourceCount(currentPlayerColor, resource)
+  );
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth className="trade-dialog">
@@ -372,9 +377,21 @@ export default function TradeDialog({ open, onClose }: TradeDialogProps) {
                     type="number"
                     label="Amount"
                     value={bankGiveAmount}
-                    onChange={(e) => setBankGiveAmount(Math.max(1, parseInt(e.target.value) || 4))}
+                    onChange={(e) => {
+                      const maxAmount = getPlayerResourceCount(currentPlayerColor, bankGiveResource);
+                      const inputValue = parseInt(e.target.value) || 1;
+                      // Clamp to available amount
+                      const clampedValue = Math.min(Math.max(1, inputValue), maxAmount);
+                      setBankGiveAmount(clampedValue);
+                    }}
                     inputProps={{ min: 1, max: getPlayerResourceCount(currentPlayerColor, bankGiveResource) }}
                     style={{ width: "100px" }}
+                    error={bankGiveAmount > getPlayerResourceCount(currentPlayerColor, bankGiveResource)}
+                    helperText={
+                      bankGiveAmount > getPlayerResourceCount(currentPlayerColor, bankGiveResource)
+                        ? `Max: ${getPlayerResourceCount(currentPlayerColor, bankGiveResource)}`
+                        : undefined
+                    }
                   />
                   <Typography>for</Typography>
                   <FormControl>
@@ -426,27 +443,38 @@ export default function TradeDialog({ open, onClose }: TradeDialogProps) {
                         <Typography variant="subtitle1" style={{ marginBottom: "8px" }}>
                           You Give:
                         </Typography>
-                        {RESOURCES.map((resource) => (
-                          <Box key={resource} display="flex" alignItems="center" gap={1} marginBottom={1}>
-                            <Typography style={{ minWidth: "80px" }}>{resource}:</Typography>
-                            <TextField
-                              type="number"
-                              size="small"
-                              value={playerGiveResources[resource]}
-                              onChange={(e) =>
-                                setPlayerGiveResources({
-                                  ...playerGiveResources,
-                                  [resource]: Math.max(0, parseInt(e.target.value) || 0),
-                                })
-                              }
-                              inputProps={{ min: 0, max: getPlayerResourceCount(currentPlayerColor, resource) }}
-                              style={{ width: "80px" }}
-                            />
-                            <Typography variant="caption" style={{ color: "white" }}>
-                              (You have: {getPlayerResourceCount(currentPlayerColor, resource)})
-                            </Typography>
-                          </Box>
-                        ))}
+                        {RESOURCES.map((resource) => {
+                          const available = getPlayerResourceCount(currentPlayerColor, resource);
+                          const inputValue = playerGiveResources[resource];
+                          const exceedsAvailable = inputValue > available;
+                          return (
+                            <Box key={resource} display="flex" alignItems="center" gap={1} marginBottom={1}>
+                              <Typography style={{ minWidth: "80px" }}>{resource}:</Typography>
+                              <TextField
+                                type="number"
+                                size="small"
+                                value={playerGiveResources[resource]}
+                                onChange={(e) => {
+                                  const value = parseInt(e.target.value) || 0;
+                                  const maxValue = getPlayerResourceCount(currentPlayerColor, resource);
+                                  // Clamp to available amount
+                                  const clampedValue = Math.min(Math.max(0, value), maxValue);
+                                  setPlayerGiveResources({
+                                    ...playerGiveResources,
+                                    [resource]: clampedValue,
+                                  });
+                                }}
+                                inputProps={{ min: 0, max: available }}
+                                style={{ width: "80px" }}
+                                error={exceedsAvailable}
+                                helperText={exceedsAvailable ? `Max: ${available}` : undefined}
+                              />
+                              <Typography variant="caption" style={{ color: "white" }}>
+                                (You have: {available})
+                              </Typography>
+                            </Box>
+                          );
+                        })}
                         <Typography variant="caption" style={{ marginTop: "8px", display: "block" }}>
                           Total: {totalGiving}
                         </Typography>
@@ -488,7 +516,12 @@ export default function TradeDialog({ open, onClose }: TradeDialogProps) {
                         You must give and receive at least one resource
                       </Typography>
                     )}
-                    {!hasEnoughForPlayerTrade && (
+                    {hasExcessiveInput && (
+                      <Typography color="error" style={{ marginTop: "8px" }}>
+                        You cannot give more resources than you have
+                      </Typography>
+                    )}
+                    {!hasEnoughForPlayerTrade && !hasExcessiveInput && (
                       <Typography color="error" style={{ marginTop: "8px" }}>
                         You don't have enough resources
                       </Typography>
@@ -520,7 +553,8 @@ export default function TradeDialog({ open, onClose }: TradeDialogProps) {
                 !selectedPlayer ||
                 totalGiving === 0 ||
                 totalReceiving === 0 ||
-                !hasEnoughForPlayerTrade
+                !hasEnoughForPlayerTrade ||
+                hasExcessiveInput
               }
             >
               Offer Trade
