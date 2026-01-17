@@ -74,6 +74,22 @@ def action_from_json(data) -> Action:
             action = Action(color, action_type, tuple(data[2]))
         else:
             action = Action(color, action_type, data[2])
+    elif action_type == ActionType.BUY_DEVELOPMENT_CARD:
+        # BUY_DEVELOPMENT_CARD can have:
+        # - None (random single card)
+        # - str (specific card type, single card)
+        # - [card_type, quantity] (specific card type and quantity, or [None, quantity] for random)
+        if data[2] is None:
+            action = Action(color, action_type, None)
+        elif isinstance(data[2], str):
+            # Specific dev card type (single card)
+            action = Action(color, action_type, data[2])
+        elif isinstance(data[2], (list, tuple)) and len(data[2]) == 2:
+            # [card_type, quantity] format
+            card_type, quantity = data[2]
+            action = Action(color, action_type, (card_type, int(quantity)))
+        else:
+            action = Action(color, action_type, data[2])
     elif action_type == ActionType.DELETE_ROAD:
         # DELETE_ROAD edge should be sorted tuple to match backend format
         edge_list = data[2]

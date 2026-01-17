@@ -1,6 +1,7 @@
 import React, { createContext, useReducer } from "react";
 import ACTIONS from "./actions";
 import { type GameState } from "./utils/api.types";
+import { isPlayersTurn } from "./utils/stateUtils";
 
 export type CatanState = {
   gameState: GameState | null; // TODO
@@ -54,13 +55,28 @@ const StateProvider = ({ children }: { children: React.ReactNode }) => {
         case ACTIONS.SET_RIGHT_DRAWER_OPENED:
           return { ...state, isRightDrawerOpen: action.data };
         case ACTIONS.SET_GAME_STATE:
+          // Check if there are still valid build actions available
+          const newGameState = action.data;
+          const isPlayerTurn = isPlayersTurn(newGameState);
+          const hasBuildSettlementActions = isPlayerTurn && newGameState.current_playable_actions.some(
+            (action: any) => action[1] === "BUILD_SETTLEMENT"
+          );
+          const hasBuildCityActions = isPlayerTurn && newGameState.current_playable_actions.some(
+            (action: any) => action[1] === "BUILD_CITY"
+          );
+          const hasBuildRoadActions = isPlayerTurn && newGameState.current_playable_actions.some(
+            (action: any) => action[1] === "BUILD_ROAD"
+          );
+          
           return {
             ...state,
             gameState: action.data,
-            // Lazy way of turning these off
-            isBuildingRoad: false,
-            isBuildingSettlement: false,
-            isBuildingCity: false,
+            // Preserve building states only if it's still the player's turn and there are valid actions available
+            // This allows users to keep clicking on the map without re-clicking "Buy"
+            // But clears building states when turn changes or no valid actions remain
+            isBuildingRoad: state.isBuildingRoad && hasBuildRoadActions,
+            isBuildingSettlement: state.isBuildingSettlement && hasBuildSettlementActions,
+            isBuildingCity: state.isBuildingCity && hasBuildCityActions,
             isRoadBuilding:
               state.isRoadBuilding && state.freeRoadsAvailable > 0,
             freeRoadsAvailable: state.isRoadBuilding
@@ -74,10 +90,20 @@ const StateProvider = ({ children }: { children: React.ReactNode }) => {
           };
         case ACTIONS.TOGGLE_BUILDING_ROAD:
           return { ...state, isBuildingRoad: !state.isBuildingRoad };
+        case ACTIONS.TOGGLE_BUILDING_SETTLEMENT:
+          return { ...state, isBuildingSettlement: !state.isBuildingSettlement };
+        case ACTIONS.TOGGLE_BUILDING_CITY:
+          return { ...state, isBuildingCity: !state.isBuildingCity };
         case ACTIONS.SET_IS_BUILDING_SETTLEMENT:
           return { ...state, isBuildingSettlement: true };
         case ACTIONS.SET_IS_BUILDING_CITY:
           return { ...state, isBuildingCity: true };
+        case ACTIONS.CANCEL_BUILDING_ROAD:
+          return { ...state, isBuildingRoad: false };
+        case ACTIONS.CANCEL_BUILDING_SETTLEMENT:
+          return { ...state, isBuildingSettlement: false };
+        case ACTIONS.CANCEL_BUILDING_CITY:
+          return { ...state, isBuildingCity: false };
         case ACTIONS.SET_IS_PLAYING_MONOPOLY:
           return { ...state, isPlayingMonopoly: true };
         case ACTIONS.CANCEL_MONOPOLY:

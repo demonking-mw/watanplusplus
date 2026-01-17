@@ -240,30 +240,89 @@ def apply_build_city(state: State, action: Action):
 
 
 def apply_buy_development_card(state: State, action: Action, action_record=None):
-    """Optionally takes action_record in case we want to support replay functionality."""
+    """Optionally takes action_record in case we want to support replay functionality.
+    
+    action.value can be:
+    - None: random card (original behavior)
+    - str: specific card type (e.g., "KNIGHT", "MONOPOLY")
+    - tuple: (card_type: str, quantity: int) for buying multiple cards
+    """
     if len(state.development_listdeck) == 0:
         raise ValueError("No more development cards")
     # Skip resource check - allow free buying
     # if not player_can_afford_dev_card(state, action.color):
     #     raise ValueError("No money to buy development card")
 
+    # Handle action value: can be None, string (card type), or tuple (card_type, quantity)
     if action_record is None:
-        card = state.development_listdeck.pop()  # already shuffled
+        if action.value is None:
+            # Random card (original behavior)
+            card = state.development_listdeck.pop()  # already shuffled
+            buy_dev_card(state, action.color, card, is_free=True)
+            return ActionRecord(action=Action(action.color, action.action_type, card), result=card)
+        elif isinstance(action.value, str):
+            # Specific card type
+            card_type = action.value
+            # Find and remove the card from the deck
+            card = None
+            for i, c in enumerate(state.development_listdeck):
+                if c == card_type:
+                    card = state.development_listdeck.pop(i)
+                    break
+            if card is None:
+                raise ValueError(f"Card type {card_type} not available in deck")
+            buy_dev_card(state, action.color, card, is_free=True)
+            return ActionRecord(action=Action(action.color, action.action_type, card), result=card)
+        elif isinstance(action.value, (tuple, list)) and len(action.value) == 2:
+            # (card_type, quantity) format
+            card_type, quantity = action.value
+            if not isinstance(quantity, int) or quantity < 1:
+                raise ValueError(f"Invalid quantity: {quantity}")
+            
+            cards_bought = []
+            for _ in range(quantity):
+                if len(state.development_listdeck) == 0:
+                    break  # No more cards available
+                
+                if card_type is None:
+                    # Random card
+                    card = state.development_listdeck.pop()
+                else:
+                    # Specific card type
+                    card = None
+                    for i, c in enumerate(state.development_listdeck):
+                        if c == card_type:
+                            card = state.development_listdeck.pop(i)
+                            break
+                    if card is None:
+                        break  # Card type not available
+                
+                buy_dev_card(state, action.color, card, is_free=True)
+                cards_bought.append(card)
+            
+            if not cards_bought:
+                raise ValueError("No cards could be bought")
+            
+            # Return the first card as the result (for compatibility)
+            return ActionRecord(
+                action=Action(action.color, action.action_type, (card_type, quantity)),
+                result=cards_bought[0] if len(cards_bought) == 1 else cards_bought
+            )
+        else:
+            # Fallback to random
+            card = state.development_listdeck.pop()
+            buy_dev_card(state, action.color, card, is_free=True)
+            return ActionRecord(action=Action(action.color, action.action_type, card), result=card)
     else:
+        # Replay mode
         card = action_record.result
-        draw_from_listdeck(state.development_listdeck, 1, card)
-
-    # Skip resource deduction - allow free buying
-    buy_dev_card(state, action.color, card, is_free=True)
-    # Don't add resources back to bank since we didn't deduct them
-    # state.resource_freqdeck = freqdeck_add(
-    #     state.resource_freqdeck, DEVELOPMENT_CARD_COST_FREQDECK
-    # )
-
-    action = Action(action.color, action.action_type, card)
-    # state.current_player_index stays the same
-    # state.current_prompt stays as PLAY
-    return ActionRecord(action=action, result=card)
+        if isinstance(card, list):
+            # Multiple cards - draw all of them
+            for c in card:
+                draw_from_listdeck(state.development_listdeck, 1, c)
+        else:
+            draw_from_listdeck(state.development_listdeck, 1, card)
+        return ActionRecord(action=action, result=card)
 
 
 def apply_delete_settlement(state: State, action: Action):

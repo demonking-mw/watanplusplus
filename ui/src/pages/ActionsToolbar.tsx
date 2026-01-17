@@ -16,6 +16,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import GavelIcon from "@mui/icons-material/Gavel";
 import DeleteIcon from "@mui/icons-material/Delete";
+import CancelIcon from "@mui/icons-material/Cancel";
 import MenuItem from "@mui/material/MenuItem";
 import ClickAwayListener from "@mui/material/ClickAwayListener";
 import Grow from "@mui/material/Grow";
@@ -32,6 +33,8 @@ import ResourceSelector from "../components/ResourceSelector";
 import DiceSelector from "../components/DiceSelector";
 import TradeDialog from "../components/TradeDialog";
 import DiscardDialog from "../components/DiscardDialog";
+import DevelopmentCardDialog from "../components/DevelopmentCardDialog";
+import type { DevelopmentCard } from "../utils/api.types";
 import { store } from "../store";
 import ACTIONS from "../actions";
 import type { GameAction, ResourceCard } from "../utils/api.types"; // Add GameState to the import, adjust path if needed
@@ -55,6 +58,7 @@ function PlayButtons() {
   const [diceSelectorOpen, setDiceSelectorOpen] = useState(false);
   const [tradeDialogOpen, setTradeDialogOpen] = useState(false);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [devCardDialogOpen, setDevCardDialogOpen] = useState(false);
 
   const carryOutAction = useCallback(
     (action?: GameAction) => async () => {
@@ -194,27 +198,47 @@ function PlayButtons() {
           )
           .map((a) => a[1])
   );
-  const buyDevCard = useCallback(async () => {
-    try {
-      const action: GameAction = [humanColor, "BUY_DEVELOPMENT_CARD", null];
-      console.log("Buying development card, sending action:", action);
-      const gameState = await postAction(gameId, action);
-      console.log("Received game state after buying dev card:", gameState);
-      dispatch({ type: ACTIONS.SET_GAME_STATE, data: gameState });
-      dispatchSnackbar(enqueueSnackbar, closeSnackbar, gameState);
-    } catch (error) {
-      console.error("Error buying development card:", error);
-    }
+  const handleBuyDevCard = useCallback((cardType: DevelopmentCard | null, quantity: number) => {
+    setDevCardDialogOpen(false);
+    // Create action with card type and quantity
+    const actionValue: [DevelopmentCard | null, number] = [cardType, quantity];
+    const action: GameAction = [humanColor, "BUY_DEVELOPMENT_CARD", actionValue];
+    console.log("Buying development card, sending action:", action);
+    postAction(gameId, action)
+      .then((gameState) => {
+        console.log("Received game state after buying dev card:", gameState);
+        dispatch({ type: ACTIONS.SET_GAME_STATE, data: gameState });
+        dispatchSnackbar(enqueueSnackbar, closeSnackbar, gameState);
+      })
+      .catch((error) => {
+        console.error("Error buying development card:", error);
+      });
   }, [gameId, dispatch, enqueueSnackbar, closeSnackbar, humanColor]);
-  const setIsBuildingSettlement = useCallback(() => {
-    dispatch({ type: ACTIONS.SET_IS_BUILDING_SETTLEMENT });
+
+  const buyDevCard = useCallback(() => {
+    setDevCardDialogOpen(true);
+  }, []);
+  const toggleBuildingSettlement = useCallback(() => {
+    dispatch({ type: ACTIONS.TOGGLE_BUILDING_SETTLEMENT });
   }, [dispatch]);
-  const setIsBuildingCity = useCallback(() => {
-    dispatch({ type: ACTIONS.SET_IS_BUILDING_CITY });
+  const toggleBuildingCity = useCallback(() => {
+    dispatch({ type: ACTIONS.TOGGLE_BUILDING_CITY });
   }, [dispatch]);
   const toggleBuildingRoad = useCallback(() => {
     dispatch({ type: ACTIONS.TOGGLE_BUILDING_ROAD });
   }, [dispatch]);
+  const cancelBuilding = useCallback(() => {
+    // Cancel all building modes
+    if (state.isBuildingRoad) {
+      dispatch({ type: ACTIONS.CANCEL_BUILDING_ROAD });
+    }
+    if (state.isBuildingSettlement) {
+      dispatch({ type: ACTIONS.CANCEL_BUILDING_SETTLEMENT });
+    }
+    if (state.isBuildingCity) {
+      dispatch({ type: ACTIONS.CANCEL_BUILDING_CITY });
+    }
+  }, [dispatch, state.isBuildingRoad, state.isBuildingSettlement, state.isBuildingCity]);
   const buildItems = [
     {
       label: "Development Card",
@@ -224,12 +248,12 @@ function PlayButtons() {
     {
       label: "City",
       disabled: false, // Always enabled - no resource requirement
-      onClick: setIsBuildingCity,
+      onClick: toggleBuildingCity,
     },
     {
       label: "Settlement",
       disabled: false, // Always enabled - no resource requirement
-      onClick: setIsBuildingSettlement,
+      onClick: toggleBuildingSettlement,
     },
     {
       label: "Road",
@@ -282,7 +306,22 @@ function PlayButtons() {
   
   const rollAction = openDiceSelector; // Change roll button to open selector
   const proceedAction = carryOutAction();
-  const endTurnAction = carryOutAction([humanColor, "END_TURN", null]);
+  const endTurnAction = useCallback(async () => {
+    // Clear building states when ending turn
+    if (state.isBuildingRoad) {
+      dispatch({ type: ACTIONS.CANCEL_BUILDING_ROAD });
+    }
+    if (state.isBuildingSettlement) {
+      dispatch({ type: ACTIONS.CANCEL_BUILDING_SETTLEMENT });
+    }
+    if (state.isBuildingCity) {
+      dispatch({ type: ACTIONS.CANCEL_BUILDING_CITY });
+    }
+    // Then end the turn
+    const gameState = await postAction(gameId, [humanColor, "END_TURN", null]);
+    dispatch({ type: ACTIONS.SET_GAME_STATE, data: gameState });
+    dispatchSnackbar(enqueueSnackbar, closeSnackbar, gameState);
+  }, [gameId, humanColor, dispatch, enqueueSnackbar, closeSnackbar, state.isBuildingRoad, state.isBuildingSettlement, state.isBuildingCity]);
   return (
     <>
       <OptionsButton
@@ -301,6 +340,16 @@ function PlayButtons() {
       >
         Buy
       </OptionsButton>
+      {(state.isBuildingRoad || state.isBuildingSettlement || state.isBuildingCity) && (
+        <Button
+          variant="outlined"
+          color="secondary"
+          startIcon={<CancelIcon />}
+          onClick={cancelBuilding}
+        >
+          Cancel Building
+        </Button>
+      )}
       <Button
         variant={state.isDeleting ? "contained" : "outlined"}
         color={state.isDeleting ? "error" : "primary"}
@@ -372,6 +421,11 @@ function PlayButtons() {
       <DiscardDialog
         open={discardDialogOpen}
         onClose={() => setDiscardDialogOpen(false)}
+      />
+      <DevelopmentCardDialog
+        open={devCardDialogOpen}
+        onClose={() => setDevCardDialogOpen(false)}
+        onSelect={handleBuyDevCard}
       />
     </>
   );
