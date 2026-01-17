@@ -1,0 +1,33 @@
+.dice-selector {
+  .MuiDialog-paper {
+    padding: 16px;
+  }
+
+  .dice-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 8px 0;
+  }
+
+  .random-roll-button {
+    padding: 16px;
+    margin-bottom: 8px;
+    font-size: 1.2rem;
+  }
+
+  .dice-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+  }
+
+  .dice-button {
+    min-width: 100px;
+    padding: 12px 8px;
+  }
+
+  .cancel-button {
+    margin-top: 8px;
+  }
+}

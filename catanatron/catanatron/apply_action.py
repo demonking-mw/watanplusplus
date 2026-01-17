@@ -261,7 +261,27 @@ def apply_roll(state: State, action: Action, action_record=None):
     key = player_key(state, action.color)
     state.player_state[f"{key}_HAS_ROLLED"] = True
 
-    dices = action_record.result if action_record is not None else roll_dice()
+    # Check if dice values are provided in action.value (for manual selection)
+    # Otherwise use action_record.result (for replay) or roll randomly
+    import logging
+    logging.info(f"apply_roll: action.value={action.value}, type={type(action.value)}, action_record={action_record}")
+    
+    if action.value is not None and isinstance(action.value, (tuple, list)) and len(action.value) == 2:
+        # User selected specific dice values
+        dices = tuple(action.value)
+        # Validate dice values are between 1 and 6
+        if not (1 <= dices[0] <= 6 and 1 <= dices[1] <= 6):
+            raise ValueError(f"Invalid dice values: {dices}. Each die must be between 1 and 6.")
+        logging.info(f"Using manual dice selection: {dices}")
+    elif action_record is not None:
+        # Use recorded result for replay
+        dices = action_record.result
+        logging.info(f"Using action_record dice: {dices}")
+    else:
+        # Random roll
+        dices = roll_dice()
+        logging.info(f"Using random dice roll: {dices}")
+    
     number = dices[0] + dices[1]
     action = Action(action.color, action.action_type, dices)
 

@@ -25,6 +25,7 @@ import Hidden from "../components/Hidden";
 import Prompt from "../components/Prompt";
 import ResourceCards from "../components/ResourceCards";
 import ResourceSelector from "../components/ResourceSelector";
+import DiceSelector from "../components/DiceSelector";
 import { store } from "../store";
 import ACTIONS from "../actions";
 import type { GameAction, ResourceCard } from "../utils/api.types"; // Add GameState to the import, adjust path if needed
@@ -45,14 +46,15 @@ function PlayButtons() {
   const { state, dispatch } = useContext(store);
   const { enqueueSnackbar, closeSnackbar } = useSnackbar();
   const [resourceSelectorOpen, setResourceSelectorOpen] = useState(false);
+  const [diceSelectorOpen, setDiceSelectorOpen] = useState(false);
 
   const carryOutAction = useCallback(
-    memoize((action?: GameAction) => async () => {
+    (action?: GameAction) => async () => {
       const gameState = await postAction(gameId, action);
       dispatch({ type: ACTIONS.SET_GAME_STATE, data: gameState });
       dispatchSnackbar(enqueueSnackbar, closeSnackbar, gameState);
-    }),
-    [enqueueSnackbar, closeSnackbar]
+    },
+    [gameId, enqueueSnackbar, closeSnackbar, dispatch]
   );
 
   const {
@@ -77,7 +79,11 @@ function PlayButtons() {
       .filter((action) => action[1].startsWith("PLAY"))
       .map((action) => action[1])
   );
-  const humanColor = getHumanColor(gameState);
+  // Use current_color if it's a human player's turn, otherwise fall back to first human color
+  // This is important for multiplayer games where different human players take turns
+  const humanColor = !gameState.bot_colors.includes(gameState.current_color) 
+    ? gameState.current_color 
+    : getHumanColor(gameState);
   const setIsPlayingMonopoly = useCallback(() => {
     dispatch({ type: ACTIONS.SET_IS_PLAYING_MONOPOLY });
   }, [dispatch]);
@@ -229,7 +235,33 @@ function PlayButtons() {
   const setIsMovingRobber = useCallback(() => {
     dispatch({ type: ACTIONS.SET_IS_MOVING_ROBBER });
   }, [dispatch]);
-  const rollAction = carryOutAction([humanColor, "ROLL", null]);
+  
+  const handleDiceSelection = useCallback(
+    (diceValue: [number, number] | null) => {
+      // Use current_color to ensure we're using the correct player for this turn
+      // This is especially important in multiplayer games
+      const currentPlayerColor = !gameState.bot_colors.includes(gameState.current_color) 
+        ? gameState.current_color 
+        : getHumanColor(gameState);
+      
+      // null means random roll, otherwise use the selected dice values
+      const action: GameAction = [
+        currentPlayerColor,
+        "ROLL",
+        diceValue,
+      ];
+      console.log("Dice selection - sending action:", action, "current_color:", gameState.current_color);
+      const rollAction = carryOutAction(action);
+      rollAction();
+    },
+    [gameState, carryOutAction]
+  );
+  
+  const openDiceSelector = useCallback(() => {
+    setDiceSelectorOpen(true);
+  }, []);
+  
+  const rollAction = openDiceSelector; // Change roll button to open selector
   const proceedAction = carryOutAction();
   const endTurnAction = carryOutAction([humanColor, "END_TURN", null]);
   return (
@@ -295,6 +327,11 @@ function PlayButtons() {
         options={getValidYearOfPlentyOptions()}
         onSelect={handleResourceSelection}
         mode={isPlayingMonopoly ? "monopoly" : "yearOfPlenty"}
+      />
+      <DiceSelector
+        open={diceSelectorOpen}
+        onClose={() => setDiceSelectorOpen(false)}
+        onSelect={handleDiceSelection}
       />
     </>
   );

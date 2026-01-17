@@ -23,6 +23,7 @@ export async function getState(
 
 /** action=undefined means bot action */
 export async function postAction(gameId: string, action?: GameAction) {
+  console.log("postAction - sending:", action);
   const response = await axios.post<GameState>(
     `${API_URL}/api/games/${gameId}/actions`,
     action

@@ -38,6 +38,15 @@ def action_from_json(data) -> Action:
     elif action_type == ActionType.MARITIME_TRADE:
         value = tuple(data[2])
         action = Action(color, action_type, value)
+    elif action_type == ActionType.ROLL:
+        # ROLL can have None (random) or [die1, die2] (manual selection)
+        if data[2] is None:
+            action = Action(color, action_type, None)
+        elif isinstance(data[2], (list, tuple)) and len(data[2]) == 2:
+            # Manual dice selection: [die1, die2]
+            action = Action(color, action_type, tuple(data[2]))
+        else:
+            action = Action(color, action_type, data[2])
     else:
         action = Action(color, action_type, data[2])
     return action

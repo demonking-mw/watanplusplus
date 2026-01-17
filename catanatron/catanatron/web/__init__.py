@@ -7,7 +7,7 @@ from flask_cors import CORS
 def create_app(test_config=None):
     """Create and configure an instance of the Flask application."""
     app = Flask(__name__)
-    CORS(app)
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     # ===== Load base configuration
     database_url = os.environ.get("DATABASE_URL", "sqlite:///:memory:")

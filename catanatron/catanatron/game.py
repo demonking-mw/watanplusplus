@@ -29,6 +29,27 @@ def is_valid_action(playable_actions, state: State, action: Action) -> bool:
             and player_has_rolled(state, action.color)
             and is_valid_trade(action.value)
         )
+    
+    # Special handling for ROLL actions: allow manual dice selection
+    # If there's a ROLL action in playable_actions, accept any ROLL action
+    # as long as the dice values are valid (None or tuple of 2 ints between 1-6)
+    if action.action_type == ActionType.ROLL:
+        # Check if ROLL is a playable action (regardless of value)
+        has_roll_action = any(
+            a.action_type == ActionType.ROLL and a.color == action.color 
+            for a in playable_actions
+        )
+        if not has_roll_action:
+            return False
+        
+        # Validate dice values if provided
+        if action.value is not None:
+            if not isinstance(action.value, (tuple, list)) or len(action.value) != 2:
+                return False
+            if not (1 <= action.value[0] <= 6 and 1 <= action.value[1] <= 6):
+                return False
+        
+        return True
 
     return action in playable_actions
 

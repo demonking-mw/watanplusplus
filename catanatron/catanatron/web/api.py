@@ -7,6 +7,7 @@ from flask import Response, Blueprint, jsonify, abort, request
 from catanatron.web.models import upsert_game_state, get_game_state
 from catanatron.json import GameEncoder, action_from_json
 from catanatron.models.player import Color, RandomPlayer, Player
+from catanatron.models.enums import ActionType
 from catanatron.game import Game
 from catanatron.players.value import ValueFunctionPlayer
 from catanatron.players.minimax import AlphaBetaPlayer
@@ -92,9 +93,17 @@ def post_action_endpoint(game_id):
         game.play_tick()
         upsert_game_state(game)
     else:
-        action = action_from_json(request.json)
-        game.execute(action)
-        upsert_game_state(game)
+        try:
+            logging.info(f"Received request.json: {request.json}")
+            action = action_from_json(request.json)
+            # Debug logging for dice rolls
+            if action.action_type == ActionType.ROLL:
+                logging.info(f"Received ROLL action with value: {action.value}, type: {type(action.value)}")
+            game.execute(action)
+            upsert_game_state(game)
+        except Exception as e:
+            logging.error(f"Error processing action: {str(e)}", exc_info=True)
+            abort(500, description=f"Error processing action: {str(e)}")
 
     return Response(
         response=json.dumps(game, cls=GameEncoder),
