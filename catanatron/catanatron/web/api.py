@@ -6,7 +6,7 @@ from flask import Response, Blueprint, jsonify, abort, request
 
 from catanatron.web.models import upsert_game_state, get_game_state
 from catanatron.json import GameEncoder, action_from_json
-from catanatron.models.player import Color, RandomPlayer
+from catanatron.models.player import Color, RandomPlayer, Player
 from catanatron.game import Game
 from catanatron.players.value import ValueFunctionPlayer
 from catanatron.players.minimax import AlphaBetaPlayer
@@ -15,13 +15,33 @@ from catanatron.web.mcts_analysis import GameAnalyzer
 bp = Blueprint("api", __name__, url_prefix="/api")
 
 
+class WebHumanPlayer(Player):
+    """Human player for web interface. 
+    
+    This player has is_bot=False, so the backend will wait for HTTP requests
+    instead of calling decide(). The decide() method should never be called
+    in web mode, but we implement it as a safety fallback.
+    """
+    
+    def __init__(self, color):
+        super().__init__(color, is_bot=False)
+    
+    def decide(self, game, playable_actions):
+        # This should never be called in web mode since is_bot=False
+        # The backend waits for HTTP requests instead
+        # But if it is called somehow, return first action as fallback
+        if len(playable_actions) == 0:
+            raise ValueError("No playable actions available")
+        return playable_actions[0]
+
+
 def player_factory(player_key):
     if player_key[0] == "CATANATRON":
         return AlphaBetaPlayer(player_key[1], 2, True)
     elif player_key[0] == "RANDOM":
         return RandomPlayer(player_key[1])
     elif player_key[0] == "HUMAN":
-        return ValueFunctionPlayer(player_key[1], is_bot=False)
+        return WebHumanPlayer(player_key[1])
     else:
         raise ValueError("Invalid player key")
 

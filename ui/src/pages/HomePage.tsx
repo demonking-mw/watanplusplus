@@ -11,6 +11,7 @@ const GameMode = Object.freeze({
   HUMAN_VS_CATANATRON: "HUMAN_VS_CATANATRON",
   RANDOM_BOTS: "RANDOM_BOTS",
   CATANATRON_BOTS: "CATANATRON_BOTS",
+  LOCAL_MULTIPLAYER: "LOCAL_MULTIPLAYER",
 });
 
 type GameModeType = typeof GameMode[keyof typeof GameMode]
@@ -27,6 +28,8 @@ function getPlayers(gameMode: GameModeType, numPlayers: number) {
       return Array(numPlayers).fill("RANDOM");
     case GameMode.CATANATRON_BOTS:
       return Array(numPlayers).fill("CATANATRON");
+    case GameMode.LOCAL_MULTIPLAYER:
+      return Array(numPlayers).fill("HUMAN");
     default:
       throw new Error("Invalid Game Mode");
   }
@@ -76,6 +79,13 @@ export default function HomePage() {
             <Button
               variant="contained"
               color="primary"
+              onClick={() => handleCreateGame(GameMode.LOCAL_MULTIPLAYER)}
+            >
+              Play with My Friends
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
               onClick={() => handleCreateGame(GameMode.HUMAN_VS_CATANATRON)}
             >
               Play against Catanatron
