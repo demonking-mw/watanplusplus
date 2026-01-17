@@ -2,6 +2,7 @@ import os
 import json
 import pickle
 from contextlib import contextmanager
+from typing import Optional
 from catanatron.json import GameEncoder
 
 from catanatron.game import Game
@@ -85,7 +86,7 @@ def upsert_game_state(game: Game, session_param=None):
     return game_state
 
 
-def get_game_state(game_id, state_index=None) -> Game | None:
+def get_game_state(game_id, state_index=None) -> Optional[Game]:
     """
     Returns the game from database.
     """
