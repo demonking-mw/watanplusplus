@@ -195,10 +195,16 @@ function PlayButtons() {
           .map((a) => a[1])
   );
   const buyDevCard = useCallback(async () => {
-    const action: GameAction = [humanColor, "BUY_DEVELOPMENT_CARD", null];
-    const gameState = await postAction(gameId, action);
-    dispatch({ type: ACTIONS.SET_GAME_STATE, data: gameState });
-    dispatchSnackbar(enqueueSnackbar, closeSnackbar, gameState);
+    try {
+      const action: GameAction = [humanColor, "BUY_DEVELOPMENT_CARD", null];
+      console.log("Buying development card, sending action:", action);
+      const gameState = await postAction(gameId, action);
+      console.log("Received game state after buying dev card:", gameState);
+      dispatch({ type: ACTIONS.SET_GAME_STATE, data: gameState });
+      dispatchSnackbar(enqueueSnackbar, closeSnackbar, gameState);
+    } catch (error) {
+      console.error("Error buying development card:", error);
+    }
   }, [gameId, dispatch, enqueueSnackbar, closeSnackbar, humanColor]);
   const setIsBuildingSettlement = useCallback(() => {
     dispatch({ type: ACTIONS.SET_IS_BUILDING_SETTLEMENT });
@@ -212,22 +218,22 @@ function PlayButtons() {
   const buildItems = [
     {
       label: "Development Card",
-      disabled: !buildActionTypes.has("BUY_DEVELOPMENT_CARD"),
+      disabled: false, // Always enabled - no resource requirement
       onClick: buyDevCard,
     },
     {
       label: "City",
-      disabled: !buildActionTypes.has("BUILD_CITY"),
+      disabled: false, // Always enabled - no resource requirement
       onClick: setIsBuildingCity,
     },
     {
       label: "Settlement",
-      disabled: !buildActionTypes.has("BUILD_SETTLEMENT"),
+      disabled: false, // Always enabled - no resource requirement
       onClick: setIsBuildingSettlement,
     },
     {
       label: "Road",
-      disabled: !buildActionTypes.has("BUILD_ROAD"),
+      disabled: false, // Always enabled - no resource requirement
       onClick: toggleBuildingRoad,
     },
   ];
@@ -285,7 +291,7 @@ function PlayButtons() {
         Use
       </OptionsButton>
       <OptionsButton
-        disabled={buildActionTypes.size === 0 || isPlayingDevCard}
+        disabled={isPlayingDevCard} // Always enabled except when playing dev card
         menuListId="build-menu-list"
         icon={<BuildIcon />}
         items={buildItems}

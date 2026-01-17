@@ -156,10 +156,9 @@ def apply_build_settlement(state: State, action: Action):
             road_color,
             road_lengths,
         ) = state.board.build_settlement(action.color, node_id, False)
-        build_settlement(state, action.color, node_id, False)
-        state.resource_freqdeck = freqdeck_add(
-            state.resource_freqdeck, SETTLEMENT_COST_FREQDECK
-        )  # replenish bank
+        # Skip resource deduction - allow free building
+        build_settlement(state, action.color, node_id, True)  # Use is_free=True to skip resource deduction
+        # Don't add resources back to bank since we didn't deduct them
         maintain_longest_road(state, previous_road_color, road_color, road_lengths)
 
         # state.current_player_index stays the same
@@ -212,7 +211,8 @@ def apply_build_road(state: State, action: Action):
     else:
         result = state.board.build_road(action.color, edge)
         previous_road_color, road_color, road_lengths = result
-        build_road(state, action.color, edge, False)
+        # Skip resource deduction - allow free building
+        build_road(state, action.color, edge, True)  # Use is_free=True to skip resource deduction
         maintain_longest_road(state, previous_road_color, road_color, road_lengths)
 
         # state.current_player_index stays the same
@@ -223,10 +223,9 @@ def apply_build_road(state: State, action: Action):
 def apply_build_city(state: State, action: Action):
     node_id = action.value
     state.board.build_city(action.color, node_id)
-    build_city(state, action.color, node_id)
-    state.resource_freqdeck = freqdeck_add(
-        state.resource_freqdeck, CITY_COST_FREQDECK
-    )  # replenish bank
+    # Skip resource deduction - allow free building
+    build_city(state, action.color, node_id, is_free=True)
+    # Don't add resources back to bank since we didn't deduct them
 
     # state.current_player_index stays the same
     # state.current_prompt stays as PLAY
@@ -237,8 +236,9 @@ def apply_buy_development_card(state: State, action: Action, action_record=None)
     """Optionally takes action_record in case we want to support replay functionality."""
     if len(state.development_listdeck) == 0:
         raise ValueError("No more development cards")
-    if not player_can_afford_dev_card(state, action.color):
-        raise ValueError("No money to buy development card")
+    # Skip resource check - allow free buying
+    # if not player_can_afford_dev_card(state, action.color):
+    #     raise ValueError("No money to buy development card")
 
     if action_record is None:
         card = state.development_listdeck.pop()  # already shuffled
@@ -246,10 +246,12 @@ def apply_buy_development_card(state: State, action: Action, action_record=None)
         card = action_record.result
         draw_from_listdeck(state.development_listdeck, 1, card)
 
-    buy_dev_card(state, action.color, card)
-    state.resource_freqdeck = freqdeck_add(
-        state.resource_freqdeck, DEVELOPMENT_CARD_COST_FREQDECK
-    )
+    # Skip resource deduction - allow free buying
+    buy_dev_card(state, action.color, card, is_free=True)
+    # Don't add resources back to bank since we didn't deduct them
+    # state.resource_freqdeck = freqdeck_add(
+    #     state.resource_freqdeck, DEVELOPMENT_CARD_COST_FREQDECK
+    # )
 
     action = Action(action.color, action.action_type, card)
     # state.current_player_index stays the same

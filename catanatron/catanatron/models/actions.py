@@ -70,15 +70,19 @@ def generate_playable_actions(state: State) -> List[Action]:
             actions.append(Action(color, ActionType.PLAY_ROAD_BUILDING, None))
         if not player_has_rolled(state, color):
             actions.append(Action(color, ActionType.ROLL, None))
+            # Allow buying dev cards even before rolling (free building mode)
+            if len(state.development_listdeck) > 0:
+                actions.append(Action(color, ActionType.BUY_DEVELOPMENT_CARD, None))
         else:
             actions.append(Action(color, ActionType.END_TURN, None))
             actions.extend(road_building_possibilities(state, color))
             actions.extend(settlement_possibilities(state, color))
             actions.extend(city_possibilities(state, color))
 
+            # Skip resource check - allow free buying
             can_buy_dev_card = (
-                player_can_afford_dev_card(state, color)
-                and len(state.development_listdeck) > 0
+                # player_can_afford_dev_card(state, color) and
+                len(state.development_listdeck) > 0
             )
             if can_buy_dev_card:
                 actions.append(Action(color, ActionType.BUY_DEVELOPMENT_CARD, None))
@@ -151,10 +155,10 @@ def road_building_possibilities(state, color, check_money=True) -> List[Action]:
     if not has_roads_available:
         return []
 
-    # Check if need to pay for roads but can't afford them.
-    has_money = player_resource_freqdeck_contains(state, color, ROAD_COST_FREQDECK)
-    if check_money and not has_money:
-        return []
+    # Skip resource check - allow free building
+    # has_money = player_resource_freqdeck_contains(state, color, ROAD_COST_FREQDECK)
+    # if check_money and not has_money:
+    #     return []
 
     buildable_edges = state.board.buildable_edges(color)
     return [Action(color, ActionType.BUILD_ROAD, edge) for edge in buildable_edges]
@@ -171,13 +175,14 @@ def settlement_possibilities(state, color, initial_build_phase=False) -> List[Ac
         ]
     else:
         key = player_key(state, color)
-        has_money = player_resource_freqdeck_contains(
-            state, color, SETTLEMENT_COST_FREQDECK
-        )
+        # Skip resource check - allow free building
+        # has_money = player_resource_freqdeck_contains(
+        #     state, color, SETTLEMENT_COST_FREQDECK
+        # )
         has_settlements_available = (
             state.player_state[f"{key}_SETTLEMENTS_AVAILABLE"] > 0
         )
-        if has_money and has_settlements_available:
+        if has_settlements_available:  # Only check if settlements are available
             buildable_node_ids = state.board.buildable_node_ids(color)
             return [
                 Action(color, ActionType.BUILD_SETTLEMENT, node_id)
@@ -190,9 +195,10 @@ def settlement_possibilities(state, color, initial_build_phase=False) -> List[Ac
 def city_possibilities(state, color) -> List[Action]:
     key = player_key(state, color)
 
-    can_buy_city = player_resource_freqdeck_contains(state, color, CITY_COST_FREQDECK)
-    if not can_buy_city:
-        return []
+    # Skip resource check - allow free building
+    # can_buy_city = player_resource_freqdeck_contains(state, color, CITY_COST_FREQDECK)
+    # if not can_buy_city:
+    #     return []
 
     has_cities_available = state.player_state[f"{key}_CITIES_AVAILABLE"] > 0
     if not has_cities_available:

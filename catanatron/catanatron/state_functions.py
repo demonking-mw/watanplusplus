@@ -193,7 +193,7 @@ def build_road(state: State, color, edge, is_free):
         )  # replenish bank
 
 
-def build_city(state: State, color, node_id):
+def build_city(state: State, color, node_id, is_free=False):
     state.buildings_by_color[color][SETTLEMENT].remove(node_id)
     state.buildings_by_color[color][CITY].append(node_id)
 
@@ -204,8 +204,9 @@ def build_city(state: State, color, node_id):
     state.player_state[f"{key}_VICTORY_POINTS"] += 1
     state.player_state[f"{key}_ACTUAL_VICTORY_POINTS"] += 1
 
-    state.player_state[f"{key}_WHEAT_IN_HAND"] -= 2
-    state.player_state[f"{key}_ORE_IN_HAND"] -= 3
+    if not is_free:
+        state.player_state[f"{key}_WHEAT_IN_HAND"] -= 2
+        state.player_state[f"{key}_ORE_IN_HAND"] -= 3
 
 
 # ===== Deck Functions
@@ -256,20 +257,22 @@ def player_freqdeck_subtract(state: State, color, freqdeck):
     state.player_state[f"{key}_ORE_IN_HAND"] -= freqdeck[4]
 
 
-def buy_dev_card(state: State, color, dev_card):
+def buy_dev_card(state: State, color, dev_card, is_free=False):
     key = player_key(state, color)
 
-    assert state.player_state[f"{key}_SHEEP_IN_HAND"] >= 1
-    assert state.player_state[f"{key}_WHEAT_IN_HAND"] >= 1
-    assert state.player_state[f"{key}_ORE_IN_HAND"] >= 1
+    if not is_free:
+        assert state.player_state[f"{key}_SHEEP_IN_HAND"] >= 1
+        assert state.player_state[f"{key}_WHEAT_IN_HAND"] >= 1
+        assert state.player_state[f"{key}_ORE_IN_HAND"] >= 1
 
     state.player_state[f"{key}_{dev_card}_IN_HAND"] += 1
     if dev_card == VICTORY_POINT:
         state.player_state[f"{key}_ACTUAL_VICTORY_POINTS"] += 1
 
-    state.player_state[f"{key}_SHEEP_IN_HAND"] -= 1
-    state.player_state[f"{key}_WHEAT_IN_HAND"] -= 1
-    state.player_state[f"{key}_ORE_IN_HAND"] -= 1
+    if not is_free:
+        state.player_state[f"{key}_SHEEP_IN_HAND"] -= 1
+        state.player_state[f"{key}_WHEAT_IN_HAND"] -= 1
+        state.player_state[f"{key}_ORE_IN_HAND"] -= 1
 
 
 def player_num_resource_cards(state: State, color, card: Optional[FastResource] = None):

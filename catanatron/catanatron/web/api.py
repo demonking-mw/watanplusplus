@@ -110,6 +110,8 @@ def post_action_endpoint(game_id):
                 logging.info(f"Received DISCARD action: color={action.color}, value={action.value}, value_type={type(action.value)}, value_len={len(action.value) if action.value else 0}, current_color={game.state.current_color()}, current_prompt={game.state.current_prompt}")
             elif action.action_type == ActionType.MOVE_ROBBER:
                 logging.info(f"Received MOVE_ROBBER action: color={action.color}, value={action.value}, coordinate={action.value[0] if action.value else None}")
+            elif action.action_type == ActionType.BUY_DEVELOPMENT_CARD:
+                logging.info(f"Received BUY_DEVELOPMENT_CARD action: color={action.color}, value={action.value}, current_color={game.state.current_color()}, current_prompt={game.state.current_prompt}, dev_cards_left={len(game.state.development_listdeck)}")
             
             # Check if this is a free robber move (not in playable actions)
             # Free robber moves bypass validation to allow moving robber anywhere
@@ -124,10 +126,27 @@ def post_action_endpoint(game_id):
                 )
                 is_free_robber_move = not action_in_playable
             
+            # Check if this is a build action - bypass validation to allow free building
+            is_build_action = action.action_type in [
+                ActionType.BUILD_SETTLEMENT,
+                ActionType.BUILD_CITY,
+                ActionType.BUILD_ROAD,
+                ActionType.BUY_DEVELOPMENT_CARD,
+            ]
+            
             if is_free_robber_move:
                 # Bypass validation for free robber moves
                 logging.info("Free robber move detected - bypassing validation")
                 game.execute(action, validate_action=False)
+            elif is_build_action:
+                # Bypass validation for build actions to allow free building
+                logging.info(f"Build action detected ({action.action_type}) - bypassing validation for free building")
+                try:
+                    action_record = game.execute(action, validate_action=False)
+                    logging.info(f"Build action executed successfully: {action.action_type}, result: {action_record}")
+                except Exception as build_error:
+                    logging.error(f"Error executing build action {action.action_type}: {str(build_error)}", exc_info=True)
+                    raise
             else:
                 game.execute(action)
             upsert_game_state(game)
