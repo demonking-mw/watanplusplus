@@ -7,10 +7,11 @@ from flask import Response, Blueprint, jsonify, abort, request
 from catanatron.web.models import upsert_game_state, get_game_state
 from catanatron.json import GameEncoder, action_from_json
 from catanatron.models.player import Color, RandomPlayer, Player
-from catanatron.models.enums import ActionType
+from catanatron.models.enums import ActionType, ActionPrompt
 from catanatron.game import Game
 from catanatron.players.value import ValueFunctionPlayer
 from catanatron.players.minimax import AlphaBetaPlayer
+from catanatron.models.actions import generate_playable_actions
 try:
     from catanatron.web.mcts_analysis import GameAnalyzer
 except ImportError:
@@ -396,6 +397,47 @@ def mcts_analysis_endpoint(game_id, state_index):
             status=500,
             mimetype="application/json",
         )
+
+
+@bp.route("/games/<string:game_id>/jump-to-player", methods=["POST"])
+def jump_to_player_endpoint(game_id):
+    """Jump to a specific player's turn instantly."""
+    game = get_game_state(game_id)
+    if game is None:
+        abort(404, description="Resource not found")
+    
+    if not request.is_json or request.json is None or "color" not in request.json:
+        abort(400, description="Missing or invalid JSON body: 'color' key required")
+    
+    try:
+        target_color_str = request.json["color"]
+        target_color = Color[target_color_str]
+        
+        # Find the index of the target color
+        if target_color not in game.state.colors:
+            abort(400, description=f"Color {target_color_str} is not in this game")
+        
+        target_index = game.state.colors.index(target_color)
+        
+        # Jump to that player's turn
+        game.state.current_player_index = target_index
+        game.state.current_turn_index = target_index
+        game.state.current_prompt = ActionPrompt.PLAY_TURN
+        game.playable_actions = generate_playable_actions(game.state)
+        
+        upsert_game_state(game)
+        
+        payload = json.dumps(game, cls=GameEncoder)
+        return Response(
+            response=payload,
+            status=200,
+            mimetype="application/json",
+        )
+    except KeyError:
+        abort(400, description=f"Invalid color: {target_color_str}")
+    except Exception as e:
+        logging.error(f"Error jumping to player: {str(e)}", exc_info=True)
+        abort(500, description=f"Error jumping to player: {str(e)}")
 
 
 def _parse_state_index(state_index_str: str):

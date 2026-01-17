@@ -31,6 +31,14 @@ export async function postAction(gameId: string, action?: GameAction) {
   return response.data;
 }
 
+export async function jumpToPlayer(gameId: string, color: Color): Promise<GameState> {
+  const response = await axios.post<GameState>(
+    `${API_URL}/api/games/${gameId}/jump-to-player`,
+    { color }
+  );
+  return response.data;
+}
+
 export type MCTSProbabilities = {
   [K in Color]: number;
 };

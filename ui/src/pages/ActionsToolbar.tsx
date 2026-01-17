@@ -39,8 +39,9 @@ import { store } from "../store";
 import ACTIONS from "../actions";
 import type { GameAction, ResourceCard } from "../utils/api.types"; // Add GameState to the import, adjust path if needed
 import { getHumanColor, playerKey } from "../utils/stateUtils";
-import { postAction } from "../utils/apiClient";
+import { postAction, jumpToPlayer } from "../utils/apiClient";
 import { humanizeTradeAction } from "../utils/promptUtils";
+import type { Color } from "../utils/api.types";
 
 import "./ActionsToolbar.scss";
 import { useSnackbar } from "notistack";
@@ -322,6 +323,16 @@ function PlayButtons() {
     dispatch({ type: ACTIONS.SET_GAME_STATE, data: gameState });
     dispatchSnackbar(enqueueSnackbar, closeSnackbar, gameState);
   }, [gameId, humanColor, dispatch, enqueueSnackbar, closeSnackbar, state.isBuildingRoad, state.isBuildingSettlement, state.isBuildingCity]);
+  
+  const handleJumpToPlayer = useCallback(async (targetColor: Color) => {
+    try {
+      const gameState = await jumpToPlayer(gameId, targetColor);
+      dispatch({ type: ACTIONS.SET_GAME_STATE, data: gameState });
+      dispatchSnackbar(enqueueSnackbar, closeSnackbar, gameState);
+    } catch (error) {
+      console.error("Error jumping to player:", error);
+    }
+  }, [gameId, dispatch, enqueueSnackbar, closeSnackbar]);
   return (
     <>
       <OptionsButton
@@ -398,6 +409,18 @@ function PlayButtons() {
           ? "SELECT"
           : "END"}
       </Button>
+      <OptionsButton
+        disabled={false}
+        menuListId="jump-to-player-menu-list"
+        icon={<NavigateNextIcon />}
+        items={gameState.colors.map((color) => ({
+          label: `Jump to ${color}`,
+          disabled: color === gameState.current_color,
+          onClick: () => handleJumpToPlayer(color),
+        }))}
+      >
+        Jump To
+      </OptionsButton>
       <ResourceSelector
         open={resourceSelectorOpen}
         onClose={() => {
