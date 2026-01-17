@@ -74,6 +74,14 @@ def action_from_json(data) -> Action:
             action = Action(color, action_type, tuple(data[2]))
         else:
             action = Action(color, action_type, data[2])
+    elif action_type == ActionType.DELETE_ROAD:
+        # DELETE_ROAD edge should be sorted tuple to match backend format
+        edge_list = data[2]
+        action = Action(color, action_type, tuple(sorted(edge_list)))
+    elif action_type == ActionType.DELETE_SETTLEMENT:
+        action = Action(color, action_type, data[2])
+    elif action_type == ActionType.DELETE_CITY:
+        action = Action(color, action_type, data[2])
     else:
         action = Action(color, action_type, data[2])
     return action

@@ -18,6 +18,9 @@ export type GameActionRecord =
   | [BuildSettlementAction, null]
   | [BuildCityAction, null]
   | [BuildRoadAction, null]
+  | [DeleteSettlementAction, null]
+  | [DeleteCityAction, null]
+  | [DeleteRoadAction, null]
   | [PlayKnightCardAction, null]
   | [PlayRoadBuildingAction, null]
   | [PlayMonopolyAction, null]
@@ -31,6 +34,9 @@ export type BuyDevelopmentCardAction = [Color, "BUY_DEVELOPMENT_CARD", null];
 export type BuildSettlementAction = [Color, "BUILD_SETTLEMENT", number];
 export type BuildCityAction = [Color, "BUILD_CITY", number];
 export type BuildRoadAction = [Color, "BUILD_ROAD", [number, number]];
+export type DeleteSettlementAction = [Color, "DELETE_SETTLEMENT", number];
+export type DeleteCityAction = [Color, "DELETE_CITY", number];
+export type DeleteRoadAction = [Color, "DELETE_ROAD", [number, number]];
 export type PlayKnightCardAction = [Color, "PLAY_KNIGHT_CARD", null];
 export type PlayRoadBuildingAction = [Color, "PLAY_ROAD_BUILDING", null];
 export type PlayMonopolyAction = [Color, "PLAY_MONOPOLY", ResourceCard];
@@ -79,6 +85,9 @@ export type GameAction =
   | BuildSettlementAction
   | BuildCityAction
   | BuildRoadAction
+  | DeleteSettlementAction
+  | DeleteCityAction
+  | DeleteRoadAction
   | PlayKnightCardAction
   | PlayRoadBuildingAction
   | PlayMonopolyAction

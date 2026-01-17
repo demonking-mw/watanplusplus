@@ -73,6 +73,8 @@ def generate_playable_actions(state: State) -> List[Action]:
             # Allow buying dev cards even before rolling (free building mode)
             if len(state.development_listdeck) > 0:
                 actions.append(Action(color, ActionType.BUY_DEVELOPMENT_CARD, None))
+            # Allow ending turn even without rolling
+            actions.append(Action(color, ActionType.END_TURN, None))
         else:
             actions.append(Action(color, ActionType.END_TURN, None))
             actions.extend(road_building_possibilities(state, color))

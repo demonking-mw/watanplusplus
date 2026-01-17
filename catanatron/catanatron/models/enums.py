@@ -81,6 +81,9 @@ class ActionType(Enum):
     BUILD_SETTLEMENT = "BUILD_SETTLEMENT"  # value is node_id
     BUILD_CITY = "BUILD_CITY"  # value is node_id
     BUY_DEVELOPMENT_CARD = "BUY_DEVELOPMENT_CARD"  # value is None.
+    DELETE_ROAD = "DELETE_ROAD"  # value is edge_id
+    DELETE_SETTLEMENT = "DELETE_SETTLEMENT"  # value is node_id
+    DELETE_CITY = "DELETE_CITY"  # value is node_id
 
     # Dev Card Plays
     PLAY_KNIGHT_CARD = "PLAY_KNIGHT_CARD"  # value is None

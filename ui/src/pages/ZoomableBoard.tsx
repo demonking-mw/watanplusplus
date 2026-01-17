@@ -13,6 +13,7 @@ import type { CatanState } from "../store";
 import { useParams } from "react-router";
 import ACTIONS from "../actions";
 import Board from "./Board";
+import { toEdgeId } from "./Edge";
 import type { GameAction, TileCoordinate } from "../utils/api.types";
 
 /**
@@ -50,6 +51,20 @@ function buildNodeActions(state: CatanState) {
       .forEach((action) => {
         nodeActions[action[2]] = action;
       });
+  } else if (state.isDeleting) {
+    // In delete mode, show all buildings that belong to the current player
+    const currentColor = state.gameState.current_color;
+    // nodes is an object, not an array, so use Object.values
+    Object.values(state.gameState.nodes).forEach((node) => {
+      if (node.building && node.color === currentColor) {
+        // Create delete action based on building type
+        if (node.building === "SETTLEMENT") {
+          nodeActions[node.id] = [currentColor, "DELETE_SETTLEMENT", node.id];
+        } else if (node.building === "CITY") {
+          nodeActions[node.id] = [currentColor, "DELETE_CITY", node.id];
+        }
+      }
+    });
   }
   return nodeActions;
 }
@@ -79,6 +94,21 @@ function buildEdgeActions(state: CatanState) {
       .forEach((action) => {
         edgeActions[`${action[2][0]},${action[2][1]}`] = action;
       });
+  } else if (state.isDeleting) {
+    // In delete mode, show all roads that belong to the current player
+    const currentColor = state.gameState.current_color;
+    // edges is an array, so forEach should work
+    const edgesArray = Array.isArray(state.gameState.edges) 
+      ? state.gameState.edges 
+      : Object.values(state.gameState.edges || {});
+    edgesArray.forEach((edge) => {
+      if (edge.color === currentColor) {
+        // Use toEdgeId to ensure consistent format matching what Edge component expects
+        const edgeId = toEdgeId(edge.id);
+        edgeActions[edgeId] = [currentColor, "DELETE_ROAD", edge.id];
+      }
+    });
+    console.log("Delete mode - edgeActions:", Object.keys(edgeActions), "currentColor:", currentColor, "totalEdges:", edgesArray.length, "playerEdges:", edgesArray.filter(e => e.color === currentColor).length);
   }
   return edgeActions;
 }
@@ -108,9 +138,13 @@ export default function ZoomableBoard({ replayMode }: ZoomableBoardProps) {
       if (action) {
         const gameState = await postAction(gameId, action);
         dispatch({ type: ACTIONS.SET_GAME_STATE, data: gameState });
+        // Turn off delete mode after deleting
+        if (state.isDeleting && (action[1] === "DELETE_SETTLEMENT" || action[1] === "DELETE_CITY")) {
+          dispatch({ type: ACTIONS.SET_IS_DELETING });
+        }
       }
     }),
-    []
+    [state.isDeleting, gameId, dispatch]
   );
   const buildOnEdgeClick = useCallback(
     memoize((id, action) => async () => {
@@ -118,9 +152,13 @@ export default function ZoomableBoard({ replayMode }: ZoomableBoardProps) {
       if (action) {
         const gameState = await postAction(gameId, action);
         dispatch({ type: ACTIONS.SET_GAME_STATE, data: gameState });
+        // Turn off delete mode after deleting
+        if (state.isDeleting && (action[1] === "DELETE_ROAD")) {
+          dispatch({ type: ACTIONS.SET_IS_DELETING });
+        }
       }
     }),
-    []
+    [state.isDeleting, gameId, dispatch]
   );
   const handleTileClick = useCallback(
     memoize((coordinate: TileCoordinate) => {
@@ -156,7 +194,7 @@ export default function ZoomableBoard({ replayMode }: ZoomableBoardProps) {
         }
       }
     }),
-    [state.isMovingRobber, state.isFreeMovingRobber, gameState, gameId, dispatch]
+    [state.isMovingRobber, state.isFreeMovingRobber, state.isDeleting, gameState, gameId, dispatch]
   );
 
   const nodeActions = replayMode ? {} : buildNodeActions(state);
@@ -188,6 +226,7 @@ export default function ZoomableBoard({ replayMode }: ZoomableBoardProps) {
             isMobile={isMobile}
             isMovingRobber={state.isMovingRobber}
             isFreeMovingRobber={state.isFreeMovingRobber}
+            isDeleting={state.isDeleting}
           />
         </TransformComponent>
       </div>

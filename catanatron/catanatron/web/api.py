@@ -112,6 +112,12 @@ def post_action_endpoint(game_id):
                 logging.info(f"Received MOVE_ROBBER action: color={action.color}, value={action.value}, coordinate={action.value[0] if action.value else None}")
             elif action.action_type == ActionType.BUY_DEVELOPMENT_CARD:
                 logging.info(f"Received BUY_DEVELOPMENT_CARD action: color={action.color}, value={action.value}, current_color={game.state.current_color()}, current_prompt={game.state.current_prompt}, dev_cards_left={len(game.state.development_listdeck)}")
+            elif action.action_type == ActionType.DELETE_ROAD:
+                logging.info(f"Received DELETE_ROAD action: color={action.color}, value={action.value}, type={type(action.value)}")
+            elif action.action_type == ActionType.DELETE_SETTLEMENT:
+                logging.info(f"Received DELETE_SETTLEMENT action: color={action.color}, value={action.value}")
+            elif action.action_type == ActionType.DELETE_CITY:
+                logging.info(f"Received DELETE_CITY action: color={action.color}, value={action.value}")
             
             # Check if this is a free robber move (not in playable actions)
             # Free robber moves bypass validation to allow moving robber anywhere
@@ -134,6 +140,13 @@ def post_action_endpoint(game_id):
                 ActionType.BUY_DEVELOPMENT_CARD,
             ]
             
+            # Check if this is a delete action - bypass validation to allow free deletion
+            is_delete_action = action.action_type in [
+                ActionType.DELETE_SETTLEMENT,
+                ActionType.DELETE_CITY,
+                ActionType.DELETE_ROAD,
+            ]
+            
             if is_free_robber_move:
                 # Bypass validation for free robber moves
                 logging.info("Free robber move detected - bypassing validation")
@@ -146,6 +159,15 @@ def post_action_endpoint(game_id):
                     logging.info(f"Build action executed successfully: {action.action_type}, result: {action_record}")
                 except Exception as build_error:
                     logging.error(f"Error executing build action {action.action_type}: {str(build_error)}", exc_info=True)
+                    raise
+            elif is_delete_action:
+                # Bypass validation for delete actions to allow free deletion
+                logging.info(f"Delete action detected ({action.action_type}) - bypassing validation for free deletion")
+                try:
+                    action_record = game.execute(action, validate_action=False)
+                    logging.info(f"Delete action executed successfully: {action.action_type}, result: {action_record}")
+                except Exception as delete_error:
+                    logging.error(f"Error executing delete action {action.action_type}: {str(delete_error)}", exc_info=True)
                     raise
             else:
                 game.execute(action)

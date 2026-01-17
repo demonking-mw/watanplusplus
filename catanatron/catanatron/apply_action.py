@@ -9,6 +9,7 @@ from catanatron.models.enums import (
     YEAR_OF_PLENTY,
     SETTLEMENT,
     CITY,
+    ROAD,
     Action,
     ActionPrompt,
     ActionRecord,
@@ -89,6 +90,12 @@ def apply_action(
         action_record = apply_build_road(state, action)
     elif action.action_type == ActionType.BUILD_CITY:
         action_record = apply_build_city(state, action)
+    elif action.action_type == ActionType.DELETE_SETTLEMENT:
+        action_record = apply_delete_settlement(state, action)
+    elif action.action_type == ActionType.DELETE_CITY:
+        action_record = apply_delete_city(state, action)
+    elif action.action_type == ActionType.DELETE_ROAD:
+        action_record = apply_delete_road(state, action)
     elif action.action_type == ActionType.BUY_DEVELOPMENT_CARD:
         action_record = apply_buy_development_card(state, action, action_record)
     elif action.action_type == ActionType.ROLL:
@@ -257,6 +264,186 @@ def apply_buy_development_card(state: State, action: Action, action_record=None)
     # state.current_player_index stays the same
     # state.current_prompt stays as PLAY
     return ActionRecord(action=action, result=card)
+
+
+def apply_delete_settlement(state: State, action: Action):
+    """Delete a settlement from the board."""
+    node_id = action.value
+    color = action.color
+    
+    # Verify the settlement exists and belongs to the player
+    if node_id not in state.buildings_by_color[color][SETTLEMENT]:
+        raise ValueError(f"Settlement at node {node_id} does not belong to {color}")
+    
+    # Remove from board
+    if node_id in state.board.buildings:
+        building = state.board.buildings[node_id]
+        if building[0] != color or building[1] != SETTLEMENT:
+            raise ValueError(f"Invalid settlement deletion: building mismatch")
+        del state.board.buildings[node_id]
+    
+    # Remove from state
+    state.buildings_by_color[color][SETTLEMENT].remove(node_id)
+    
+    # Update player state
+    key = player_key(state, color)
+    state.player_state[f"{key}_SETTLEMENTS_AVAILABLE"] += 1
+    state.player_state[f"{key}_VICTORY_POINTS"] -= 1
+    state.player_state[f"{key}_ACTUAL_VICTORY_POINTS"] -= 1
+    
+    # Recalculate longest road (settlement might have affected it)
+    from catanatron.models.board import longest_acyclic_path, STATIC_GRAPH
+    previous_road_color = state.board.road_color
+    # Recalculate road lengths for all players
+    for player_color in state.colors:
+        if len(state.buildings_by_color[player_color][ROAD]) > 0:
+            # Recalculate longest road for this player
+            max_length = 0
+            for component in state.board.connected_components[player_color]:
+                length = len(longest_acyclic_path(state.board, component, player_color))
+                max_length = max(max_length, length)
+            state.board.road_lengths[player_color] = max_length
+    
+    # Find new longest road
+    if state.board.road_lengths:
+        new_road_color, new_road_length = max(state.board.road_lengths.items(), key=lambda e: e[1])
+        if new_road_length >= 5:
+            state.board.road_color = new_road_color
+            state.board.road_length = new_road_length
+        else:
+            state.board.road_color = None
+            state.board.road_length = 0
+    
+    maintain_longest_road(state, previous_road_color, state.board.road_color, state.board.road_lengths)
+    
+    # Re-enable buildable nodes around this location
+    state.board.board_buildable_ids.add(node_id)
+    for neighbor in STATIC_GRAPH.neighbors(node_id):
+        # Check if neighbor is buildable (no building there)
+        if neighbor not in state.board.buildings:
+            state.board.board_buildable_ids.add(neighbor)
+    
+    state.board.buildable_edges_cache = {}  # Reset cache
+    state.board.player_port_resources_cache = {}  # Reset cache
+    
+    return ActionRecord(action=action, result=None)
+
+
+def apply_delete_city(state: State, action: Action):
+    """Delete a city from the board (converts back to settlement)."""
+    node_id = action.value
+    color = action.color
+    
+    # Verify the city exists and belongs to the player
+    if node_id not in state.buildings_by_color[color][CITY]:
+        raise ValueError(f"City at node {node_id} does not belong to {color}")
+    
+    # Convert city back to settlement on board
+    if node_id in state.board.buildings:
+        building = state.board.buildings[node_id]
+        if building[0] != color or building[1] != CITY:
+            raise ValueError(f"Invalid city deletion: building mismatch")
+        state.board.buildings[node_id] = (color, SETTLEMENT)
+    
+    # Update state
+    state.buildings_by_color[color][CITY].remove(node_id)
+    state.buildings_by_color[color][SETTLEMENT].append(node_id)
+    
+    # Update player state
+    key = player_key(state, color)
+    state.player_state[f"{key}_CITIES_AVAILABLE"] += 1
+    state.player_state[f"{key}_SETTLEMENTS_AVAILABLE"] -= 1
+    state.player_state[f"{key}_VICTORY_POINTS"] -= 1
+    state.player_state[f"{key}_ACTUAL_VICTORY_POINTS"] -= 1
+    
+    state.board.buildable_edges_cache = {}  # Reset cache
+    state.board.player_port_resources_cache = {}  # Reset cache
+    
+    return ActionRecord(action=action, result=None)
+
+
+def apply_delete_road(state: State, action: Action):
+    """Delete a road from the board."""
+    edge_value = action.value
+    color = action.color
+    
+    # Convert to tuple if it's a list, and sort to match backend format
+    # Roads are stored as sorted tuples in buildings_by_color (from buildable_edges)
+    if isinstance(edge_value, (list, tuple)):
+        edge = tuple(sorted(edge_value))
+    else:
+        edge = edge_value
+    
+    # Verify the road exists and belongs to the player
+    # Roads are stored as sorted tuples in buildings_by_color (from buildable_edges which returns sorted tuples)
+    # The edge we have is already sorted, so it should match directly
+    if edge not in state.buildings_by_color[color][ROAD]:
+        # Try to find matching road by checking all roads (in case format differs)
+        found_edge = None
+        for road_edge in state.buildings_by_color[color][ROAD]:
+            # Normalize both to sorted tuples for comparison
+            road_normalized = tuple(sorted(road_edge)) if isinstance(road_edge, (list, tuple)) else road_edge
+            edge_normalized = tuple(sorted(edge)) if isinstance(edge, (list, tuple)) else edge
+            if road_normalized == edge_normalized:
+                found_edge = road_edge
+                break
+        
+        if found_edge:
+            edge = found_edge
+        else:
+            # Log available roads for debugging
+            available_roads = [tuple(sorted(r)) if isinstance(r, (list, tuple)) else r for r in list(state.buildings_by_color[color][ROAD])[:5]]
+            raise ValueError(f"Road at edge {edge_value} (normalized: {edge}) does not belong to {color}. Player has {len(state.buildings_by_color[color][ROAD])} roads. Sample normalized: {available_roads}")
+    
+    # Remove from board (roads are stored in both directions)
+    if edge in state.board.roads:
+        del state.board.roads[edge]
+    inverted_edge = (edge[1], edge[0])
+    if inverted_edge in state.board.roads:
+        del state.board.roads[inverted_edge]
+    
+    # Remove from state (edge is already sorted tuple and found above)
+    state.buildings_by_color[color][ROAD].remove(edge)
+    
+    # Update player state
+    key = player_key(state, color)
+    state.player_state[f"{key}_ROADS_AVAILABLE"] += 1
+    
+    # Recalculate connected components and longest road
+    from catanatron.models.board import longest_acyclic_path
+    previous_road_color = state.board.road_color
+    
+    # Rebuild connected components for this player
+    state.board.connected_components[color] = []
+    visited_nodes = set()
+    for road_edge in state.buildings_by_color[color][ROAD]:
+        a, b = road_edge
+        if a not in visited_nodes:
+            component = state.board.dfs_walk(a, color)
+            state.board.connected_components[color].append(component)
+            visited_nodes.update(component)
+    
+    # Recalculate road lengths
+    state.board.road_lengths[color] = 0
+    for component in state.board.connected_components[color]:
+        length = len(longest_acyclic_path(state.board, component, color))
+        state.board.road_lengths[color] = max(state.board.road_lengths[color], length)
+    
+    # Find new longest road across all players
+    if state.board.road_lengths:
+        new_road_color, new_road_length = max(state.board.road_lengths.items(), key=lambda e: e[1])
+        if new_road_length >= 5:
+            state.board.road_color = new_road_color
+            state.board.road_length = new_road_length
+        else:
+            state.board.road_color = None
+            state.board.road_length = 0
+    
+    maintain_longest_road(state, previous_road_color, state.board.road_color, state.board.road_lengths)
+    
+    state.board.buildable_edges_cache = {}  # Reset cache
+    
+    return ActionRecord(action=action, result=None)
 
 
 def apply_roll(state: State, action: Action, action_record=None):

@@ -44,6 +44,7 @@ type BoardProps = {
   show: boolean;
   isMovingRobber: boolean;
   isFreeMovingRobber: boolean;
+  isDeleting: boolean;
 }
 
 export default function Board({
@@ -60,6 +61,7 @@ export default function Board({
   show,
   isMovingRobber,
   isFreeMovingRobber,
+  isDeleting,
 }: BoardProps) {
   // TODO: Keep in sync with CSS
   const containerHeight = height - 144 - 38 - 40;
@@ -77,7 +79,7 @@ export default function Board({
       coordinate={coordinate}
       tile={tile}
       size={size}
-      flashing={isMovingRobber || isFreeMovingRobber}
+      flashing={isMovingRobber || isFreeMovingRobber || isDeleting}
       onClick={() => handleTileClick(coordinate)}
     />
   ));

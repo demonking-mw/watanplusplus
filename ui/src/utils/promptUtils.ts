@@ -5,6 +5,9 @@ import type {
   MaritimeTradeAction,
   BuildCityAction,
   BuildRoadAction,
+  DeleteSettlementAction,
+  DeleteCityAction,
+  DeleteRoadAction,
   PlayYearOfPlentyAction,
   MoveRobberAction,
 } from "./api.types";
@@ -47,6 +50,32 @@ export function humanizeActionRecord(
       );
       const edgeString = tiles.map(getShortTileString).join("-");
       return `${player} BUILT ROAD ON ${edgeString}`;
+    }
+    case "DELETE_SETTLEMENT": {
+      const action = actionRecord[0] as DeleteSettlementAction;
+      const nodeId = action[2];
+      const tiles = gameState.adjacent_tiles[nodeId];
+      const tileString = tiles.map(getShortTileString).join("-");
+      return `${player} DELETED SETTLEMENT ON ${tileString}`;
+    }
+    case "DELETE_CITY": {
+      const action = actionRecord[0] as DeleteCityAction;
+      const nodeId = action[2];
+      const tiles = gameState.adjacent_tiles[nodeId];
+      const tileString = tiles.map(getShortTileString).join("-");
+      return `${player} DELETED CITY ON ${tileString}`;
+    }
+    case "DELETE_ROAD": {
+      const action = actionRecord[0] as DeleteRoadAction;
+      const edge = action[2];
+      const a = gameState.adjacent_tiles[edge[0]].map((t) => t.id);
+      const b = gameState.adjacent_tiles[edge[1]].map((t) => t.id);
+      const intersection = a.filter((t) => b.includes(t));
+      const tiles = intersection.map(
+        (tileId) => findTileById(gameState, tileId).tile
+      );
+      const edgeString = tiles.map(getShortTileString).join("-");
+      return `${player} DELETED ROAD ON ${edgeString}`;
     }
     case "PLAY_KNIGHT_CARD": {
       return `${player} PLAYED KNIGHT CARD`;

@@ -15,6 +15,7 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import EditIcon from "@mui/icons-material/Edit";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import GavelIcon from "@mui/icons-material/Gavel";
+import DeleteIcon from "@mui/icons-material/Delete";
 import MenuItem from "@mui/material/MenuItem";
 import ClickAwayListener from "@mui/material/ClickAwayListener";
 import Grow from "@mui/material/Grow";
@@ -252,6 +253,10 @@ function PlayButtons() {
     dispatch({ type: ACTIONS.SET_IS_FREE_MOVING_ROBBER });
   }, [dispatch]);
   
+  const setIsDeleting = useCallback(() => {
+    dispatch({ type: ACTIONS.SET_IS_DELETING });
+  }, [dispatch]);
+  
   const handleDiceSelection = useCallback(
     (diceValue: [number, number] | null) => {
       // Use current_color to ensure we're using the correct player for this turn
@@ -298,6 +303,14 @@ function PlayButtons() {
       >
         Buy
       </OptionsButton>
+      <Button
+        variant={state.isDeleting ? "contained" : "outlined"}
+        color={state.isDeleting ? "error" : "primary"}
+        startIcon={<DeleteIcon />}
+        onClick={setIsDeleting}
+      >
+        {state.isDeleting ? "Delete (Click)" : "Delete"}
+      </Button>
       <Button
         disabled={!canTrade}
         variant="contained"
