@@ -5,8 +5,9 @@ from pathlib import Path
 # ---------------- Configuration ----------------
 # if error in data_yaml, replace with absolute path of data.yaml file
 SCRIPT_DIR = Path(__file__).parent
-DATA_YAML = SCRIPT_DIR / "data.yaml"
-MODEL_SIZE = "yolov8m-seg.pt"
+PROJECT_ROOT = SCRIPT_DIR.parent  # Go up one level from scripts/ to project root
+DATA_YAML = PROJECT_ROOT / "data.yaml"
+MODEL_SIZE = PROJECT_ROOT / "models" / "yolov8m-seg.pt"
 
 EPOCHS = 175
 IMAGE_SIZE = 640

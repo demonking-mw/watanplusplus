@@ -22,3 +22,14 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Models (too large for git)
+**/models/
+*.pt
+*.pth
+*.weights
+
+# Training
+**/runs/
+**/outputs/
+**/visualizations/
