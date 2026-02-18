@@ -1,0 +1,47 @@
+path: /Users/jocex/Projects/watan/dataset
+
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 38
+
+names:
+  0: brick
+  1: city_black
+  2: city_blue
+  3: city_green
+  4: city_orange
+  5: city_red
+  6: desert
+  7: number_10
+  8: number_11
+  9: number_12
+  10: number_2
+  11: number_3
+  12: number_4
+  13: number_5
+  14: number_6
+  15: number_8
+  16: number_9
+  17: ore
+  18: port_3_1
+  19: port_brick
+  20: port_ore
+  21: port_sheep
+  22: port_wheat
+  23: port_wood
+  24: road_black
+  25: road_blue
+  26: road_green
+  27: road_orange
+  28: road_red
+  29: robber
+  30: settlement_black
+  31: settlement_blue
+  32: settlement_green
+  33: settlement_orange
+  34: settlement_red
+  35: sheep
+  36: wheat
+  37: wood
