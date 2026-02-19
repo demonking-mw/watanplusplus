@@ -4,8 +4,7 @@ from pathlib import Path
 
 # ---------------- Configuration ----------------
 # if error in data_yaml, replace with absolute path of data.yaml file
-SCRIPT_DIR = Path(__file__).parent
-PROJECT_ROOT = SCRIPT_DIR.parent  # Go up one level from scripts/ to project root
+PROJECT_ROOT = Path(__file__).parent
 DATA_YAML = PROJECT_ROOT / "data.yaml"
 MODEL_SIZE = PROJECT_ROOT / "models" / "yolov8m-seg.pt"
 
