@@ -61,6 +61,7 @@ def main():
         save_period=10,
         val=True,
         plots=True,
+        project=str(PROJECT_ROOT / "runs"),
     )
 
     print("\n" + "=" * 60)
