@@ -510,3 +510,53 @@ class GameState(BaseModel):
 
         # Step 4: build validated object
         return cls.model_validate(data)
+
+
+def compute_starting_hands(gs: GameState) -> List[List[int]]:
+    """Compute each player's starting resource cards after board setup.
+
+    In Catan, each player receives **one resource card** for every
+    resource-producing tile adjacent to their **second** settlement.
+
+    Assumes the iteration order of ``gs.map.nodes`` matches the
+    physical placement order (Python dicts preserve insertion order
+    since 3.7).  The *second* node listed for a given player ID
+    is treated as their second settlement.
+
+    Parameters
+    ----------
+    gs : GameState
+        A board state where all (or most) setup settlements have been
+        placed.  Players with fewer than 2 settlements get an empty hand.
+
+    Returns
+    -------
+    List of ``num_players`` lists, each ``[Wood, Brick, Wool, Grain, Ore]``
+    (integer counts).
+    """
+    num_players = len(gs.players)
+    hands: List[List[int]] = [[0, 0, 0, 0, 0] for _ in range(num_players)]
+
+    # Track per-player settlement count to identify the second one
+    settle_count: Dict[int, int] = {}
+    second_settle: Dict[int, str] = {}  # player_id → node_key of 2nd settle
+
+    for node_key, (player_id, _btype) in gs.map.nodes.items():
+        settle_count[player_id] = settle_count.get(player_id, 0) + 1
+        if settle_count[player_id] == 2:
+            second_settle[player_id] = node_key
+
+    # Award one resource card per adjacent resource tile
+    for player in gs.players:
+        if player.id not in second_settle:
+            continue
+        node_key = second_settle[player.id]
+        for tid_str in node_key.split("_"):
+            tid = int(tid_str)
+            if tid < len(gs.map.tiles):
+                res_id, num_token = gs.map.tiles[tid]
+                # Resource tile (not desert/ocean) with a valid number token
+                if 0 <= res_id <= 4 and num_token >= 2:
+                    hands[player.id][res_id] += 1
+
+    return hands

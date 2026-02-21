@@ -45,7 +45,7 @@ def extend_option(gs: GameState) -> List[Tuple[str, float]]:
 
 def top_settle_spots(
     gs: GameState,
-    x: int = 6,  # PARAMETER: Number of top settlement spots to return
+    x: int = 4,  # PARAMETER: Number of top settlement spots to return
 ) -> List[Tuple[str, float]]:
     """Return the top *x* open settlement spots for setup placement.
 
