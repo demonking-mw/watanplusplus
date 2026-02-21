@@ -121,7 +121,6 @@ run the tests in an MCP server and confirm the following:
 2. no settlements in any cases are in conflict with each other (there is a pre-defined settlement checker)
 
 
----
 
 Write me a simple robber prediction algorithm for me that takes in a board data object and return a list (length 4 since 4 players) of robber preference
 Each robber preference is a list of 3 (location, probability), and the 3 probabilities sum to 1.
@@ -151,3 +150,105 @@ For each player, pick the top 3 tiles to rob by:
 To get the probability, use the same strength to probability algorithm as the settle decision, which is already implemented. Use a separate set of parameters as they are not the same model. Put it in the parameter section for me to tune later.
 Return the result in the shape required
 
+
+---
+
+
+Build me a non-ai init board state evaluator
+
+Parameters: you are to make them easy to adjust by me, there must not be any overwriting of them to avoid mistakes
+wb-bonus
+ows-bonus
+extreme-bonus
+prod-pair bonus
+
+total-multiplier
+total-valued-multiplier
+
+portability bonus
+
+The process:
+1. run simple rob prediction. divide all probability numbers by 4.
+2. for each tile, sum all mentions of it in the 4 players' rob prediction (take the sume of the probability after dividing by 4). This is the tile's rob attractiveness.
+3. The tile's actual production is (1 - rob_attractiveness) * productivity_points.
+4. with that, calculate each player's total actual production by resource type (result is 4 arrays each of len 5)
+5. Sum all 4 and get total actual production of the board by resource type.
+6. calculate wb/ows relative power: total actual prod of ((min(wood, brick) + 2) / (min(ore, wheat, sheep))  + 2) * 1.1
+7. use the relative strength calculation used by robber prediction to get relative strength
+
+for each person, determine whether they have a production pair: (wood brick) or (wheat ore) of the same number. If so, both of the tiles' production points is multiplied by prod-pair bonus when calculating anything related to prod FOR THAT PLAYER ONLY.
+
+for each person, determine their major strategy by a float between 0 and 1. 0 is pure wood brick, 1 is pure ows. Note, use the min calculation idea above. call this strategy-index. Note, relative strength is irrelevant in this case
+
+the person with lowest strat index gets wb-bonus 
+the person with highest strat index gets ows bonus
+the person with the most extreme strat index get extreme bonus
+
+each person get (total_post-robber_prod * total-multiplier)
+
+multiply total post robber prod with relative strength, each person get total strength * total-valued-multiplier.
+
+a person gets portability bonus if all of:
+- there is a settlement with a port that is still open that they are 2 or 3 roads away.
+- the port is either a 3:1 or the player produce 5 or more points of such resource after robber but ignoring prod pair bonus
+
+- compute actual prod
+- determine strat
+- best road guy get extra
+- best city guy get extra
+- unique guy gets one extra
+- total pips
+- potential open major port
+- compute wb vs ows combo-wise weight
+- paired numbers of the same group
+
+
+add a componet near the end of your algorithm for the board state evaluator:
+for each player, find out their target by the following criteria in order of importance. 
+1. the strongest player with the same strategy as them (they are wb if less than 0.5, else ows).
+2. in case of a close call or nobody stronger than the player in the category, the player with the highest eval outcome.
+
+add a param called target, subtract that from each person's target (if a player is multiple player's target, subtract that multiple times).
+
+
+
+write me a function that takes in a data object and return a list of cards the player hold, assuming that they just finished setting up the board and that the order of settlement is the order of settlements being listed
+
+
+
+---
+
+
+
+Write me a simple AI agent that analyze a catan board (at the time when everyone finished placing their initial settles, and before the game begins). It should take in the board object, first perform the simple settle eval to it, then feed its result and every players' starting hand (cards) and any information that can be obtained by calling an analysis function I built into a simple AI agent structure. Note: for each thing the agent passes in, it must clearly explain what it is and how to interpret it. The ai agent should analyze the following:
+
+- First analyze the core objective for each player as of what must they do ASAP to greatly boost their game (like securing spots with rare resources for road players, or making sure they have a spot to eventually settle for development card players). In other words, identify what a player must do to "fully activate" their setup. Analyze the difficulty of these objectives.
+
+- identify races (two people wanting the same/mutual exclusive spot), they "fight" for it.
+- get what card someone is holding
+- identify who wins each races. 
+- identify exploits others can make from the race (like trading a brick for multiple cards so one player wins the race)
+- simulate what will happend when each number rolls. Will someone get good trades when a number roll? 
+Example: someone producing a lot of wood, but another player produce multiple brick on the same number with no wood. So when that number gets rolled this player will likely get the trade he need.
+
+- geopolitical factor: who will be targeted after the first few round? (if you win a race, you become the center of attention for a bit, etc)
+- activation time frame: how long does it take for someone to complete their core objective (like building at a port). If it would take a long time, their game will be hindered.
+- building space: for road players, how many potential spots do they have and can they secure before being taken by others.
+
+It should perform the complete analysis in up to 3 consecutive AI api call, with possible data processing inbetween. The result of this call should be a relative win probability (4-tuple) that sums to 1.
+
+The agent function must be async, but you should call the ai apis in a sync order to utilize the output of one and allow better process flow.
+
+Build this simple agent for me. BEWARE that you must prompt engineer carefully to avoid bad output, you must analyze all of the following, and that you can assume that the initial algorithmic analysis is a decent one but without much complexity and with limitation. Read through the code for the analysis and other functions for a better understanding on how they work
+
+
+Now i got everything I need to build the perfect settle bot. Here is the workflow using the tools I built.
+1. ingest a json and make it a data object.
+2. run settle sim, which gives you a 20 playout simulation for each case, along with probability.
+3. make an async scoring orchestrator.
+- for the top X most likely, run the full analysis that uses AI. Make sure to deal with async await properly. 
+- for the rest, run the simple analysis. Async is optional here.
+after every analysis returns, sum (case_probability * player_0_chance_of_winning). This the score of this settle option
+return the one with the highest score.
+
+make x a tunable param, set it to 5
