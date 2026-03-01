@@ -62,8 +62,10 @@ def main():
     )
 
     print(f"✅ Process Complete.")
-    print(f"   JSON Saved to: {output_json}")
-    print(f"   Visuals Saved to: {config.VIZ_DIR}")
+    print(f"   JSON  → {output_json}")
+    print(f"   Visuals → {config.VIZ_DIR}")
+    print(f"\n💡 Visualize the board in your terminal:")
+    print(f"   python manual_processing/visualize_board.py {output_json}")
 
 if __name__ == "__main__":
     main()

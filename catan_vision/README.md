@@ -315,14 +315,18 @@ Processing image: /path/to/board_screenshot.png
 
 ## 8. Output & Visualizations
 
-All output is written to `catan_vision/visualizations/` (gitignored — safe to delete and regenerate).
+All output is written to two directories under `catan_vision/` (both gitignored — safe to delete and regenerate).
 
-| Output file | Description |
+| Directory | Contents |
 |---|---|
-| `catan_map.json` | Structured HDCS-compatible board JSON. Consumed by the Watan++ AI engine. |
-| `board_overview.png` | Full board with all detection overlays. |
-| `*_only.png` | Per-class detection images (tiles, numbers, roads, settlements, etc.). |
-| `ocean_tiles_debug.png` | Debug view of hex-grid projection onto detections. |
+| `output_json/` | `catan_map.json` — structured HDCS board JSON consumed by the AI engine |
+| `output_visualizations/` | Debug images (see table below) |
+
+| Image file | Description |
+|---|---|
+| `board_overview.jpg` | Full board with **all** detection overlays |
+| `hexes_only.jpg`, `roads_only.jpg`, etc. | Per-class group detection images |
+| `ocean_tiles_debug.jpg` | Geometric hex-grid projection overlay |
 
 ### `catan_map.json` structure
 
@@ -390,9 +394,33 @@ python -m catan_vision.main --image /path/to/board_screenshot.png
 ### Step 5 — Check output
 
 ```bash
-ls catan_vision/visualizations/
-# catan_map.json   board_overview.png   ...
+ls catan_vision/output_json/
+# catan_map.json
+
+ls catan_vision/output_visualizations/
+# board_overview.jpg   hexes_only.jpg   roads_only.jpg   ...
 ```
+
+### Step 6 — Visualize the board JSON in the terminal
+
+`manual_processing/visualize_board.py` renders the parsed board as a colour-coded ASCII map directly in your terminal. Pass it the path to `catan_map.json` output by Step 4.
+
+```bash
+# Basic board view
+python manual_processing/visualize_board.py catan_vision/output_json/catan_map.json
+```
+
+```bash
+# With settlement evaluation scores overlaid on every valid node
+python manual_processing/visualize_board.py catan_vision/output_json/catan_map.json --scores
+```
+
+What you'll see:
+- Every tile colour-coded by resource (green = wood, red = brick, yellow = grain, etc.)
+- Number tokens shown on each land tile (red for 6/8, white otherwise)
+- Port locations and trade ratios (2:1 or 3:1)
+- Robber position highlighted
+- `--scores`: settlement desirability score on every valid intersection node
 
 ---
 
@@ -413,8 +441,8 @@ PROJECT_ROOT = Path(__file__).parent
 MODEL_PATH = PROJECT_ROOT / "runs" / "catan_yolo8m" / "weights" / "best.pt"
 
 # Output directories
-VIZ_DIR  = PROJECT_ROOT / "visualizations"
-JSON_DIR = PROJECT_ROOT / "visualizations"
+VIZ_DIR  = PROJECT_ROOT / "output_visualizations"
+JSON_DIR = PROJECT_ROOT / "output_json"
 
 # Class index mappings (must match data.yaml)
 # e.g. TILE_CLASS_MAP, PORT_CLASS_MAP, SETTLEMENT_CLASS_MAP, etc.
