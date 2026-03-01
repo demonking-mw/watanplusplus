@@ -85,7 +85,7 @@ def _prune_and_normalize(
 
 def simulate_settle(
     gs: GameState,
-    x: int = 6,
+    x: int = 4,
     max_window: int = MAX_WINDOW,
 ) -> List[Tuple[Tuple[str, str], List[Tuple[GameState, float]]]]:
     """Simulate the entire setup draft for each of the player's options.
