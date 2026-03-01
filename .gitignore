@@ -31,4 +31,5 @@ Thumbs.db
 
 # Training
 **/runs/
-**/visualizations/
+**/output_visualizations/
+**/output_json/

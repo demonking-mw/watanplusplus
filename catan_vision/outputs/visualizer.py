@@ -1,6 +1,6 @@
 import os
 import cv2
-import config
+from .. import config
 
 
 class Visualizer:
@@ -64,3 +64,8 @@ class Visualizer:
                 img_path, classes=ids, conf=config.CONF_THRESHOLD, verbose=False
             )[0]
             res.save(os.path.join(self.viz_dir, f"{g_name}_only.jpg"))
+
+    def save_board_overview(self, model, img_path):
+        """Save a single image with ALL detections overlaid — the board_overview."""
+        res = model(img_path, conf=config.CONF_THRESHOLD, verbose=False)[0]
+        res.save(os.path.join(self.viz_dir, "board_overview.jpg"))

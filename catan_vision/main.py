@@ -3,10 +3,10 @@ import sys
 from pathlib import Path
 
 # Import your local modules
-import config
-from processing.board_processor import BoardProcessor
-from outputs.json_writer import JsonWriter
-from outputs.visualizer import Visualizer
+from . import config
+from .processing.board_processor import BoardProcessor
+from .outputs.json_writer import JsonWriter
+from .outputs.visualizer import Visualizer
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -34,6 +34,7 @@ def main():
     print(f"Loading model from: {config.MODEL_PATH}")
     processor = BoardProcessor(config.MODEL_PATH)
     visualizer = Visualizer(config.VIZ_DIR)
+    config.JSON_DIR.mkdir(parents=True, exist_ok=True)
 
     # 3. Run Processing
     # Note: We use .process_image() instead of .run() to match the refactored class
@@ -41,13 +42,14 @@ def main():
     board, yolo_results, robber_id = processor.process_image(input_path)
 
     # 4. Export Data (JSON)
-    # We save to 'outputs/catan_map.json' by default, or you could add an arg for this too
-    output_json = config.VIZ_DIR / "catan_map.json"
+    output_json = config.JSON_DIR / "catan_map.json"
     JsonWriter.save(board, robber_id, output_json)
 
     # 5. Export Visuals
-    # Save the specific YOLO group detections (Roads only, Hexes only, etc.)
-    # We pass the loaded model from the processor to avoid reloading it
+    # Save full board overview (all detections in one image)
+    visualizer.save_board_overview(processor.parser.model, input_path)
+
+    # Save per-class group images (Roads only, Hexes only, etc.)
     visualizer.save_yolo_groups(processor.parser.model, input_path)
     
     # Save the high-detail geometric debug map

@@ -6,7 +6,7 @@ from pathlib import Path
 # if error in data_yaml, replace with absolute path of data.yaml file
 PROJECT_ROOT = Path(__file__).parent
 DATA_YAML = PROJECT_ROOT / "data.yaml"
-MODEL_SIZE = PROJECT_ROOT / "models" / "yolov8m-seg.pt"
+MODEL_SIZE = "yolov8m-seg.pt"
 
 EPOCHS = 175
 IMAGE_SIZE = 640

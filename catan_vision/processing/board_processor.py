@@ -1,7 +1,7 @@
 from .detection_parser import DetectionParser
 from .grid_projection import GridProjector
 from .board import CatanBoard
-import config
+from .. import config
 
 
 class BoardProcessor:

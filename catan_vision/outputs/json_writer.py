@@ -1,6 +1,6 @@
 import json
 import os
-import config
+from .. import config
 
 class JsonWriter:
     @staticmethod

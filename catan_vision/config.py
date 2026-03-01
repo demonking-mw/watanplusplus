@@ -5,7 +5,8 @@ from pathlib import Path
 # ==========================================
 PROJECT_ROOT = Path(__file__).parent
 MODEL_PATH = PROJECT_ROOT / "runs" / "catan_yolo8m" / "weights" / "best.pt"
-VIZ_DIR = PROJECT_ROOT / "visualizations"
+VIZ_DIR = PROJECT_ROOT / "output_visualizations"
+JSON_DIR = PROJECT_ROOT / "output_json"
 
 # ==========================================
 # DETECTION CONFIG
