@@ -5,7 +5,6 @@ from pathlib import Path
 # ==========================================
 PROJECT_ROOT = Path(__file__).parent
 MODEL_PATH = PROJECT_ROOT / "runs" / "catan_yolo8m" / "weights" / "best.pt"
-INPUT_IMAGE = PROJECT_ROOT / "tests" / "test2.png"
 VIZ_DIR = PROJECT_ROOT / "visualizations"
 
 # ==========================================
