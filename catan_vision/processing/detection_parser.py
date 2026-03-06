@@ -1,5 +1,5 @@
 from ultralytics import YOLO
-import config
+from .. import config
 
 
 class DetectionParser:
