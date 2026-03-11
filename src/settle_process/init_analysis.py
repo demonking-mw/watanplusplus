@@ -396,7 +396,7 @@ Format: TileID:Resource(#NumberToken, pips) — pips = expected rolls per 36 dic
 {board_info}
 
 === PORTS ===
-Port access is in the form of tile - port capturing all tiles with port access.
+Port access is listed by access node ID ("T1_T2_T3") and port type (2:1 specific resource or 3:1 any).
 {ports_info}
 
 === ROADS PLACED ===
