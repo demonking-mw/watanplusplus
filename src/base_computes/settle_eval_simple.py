@@ -15,40 +15,15 @@ from collections import deque
 from typing import Dict, List, Optional, Tuple
 
 from base_computes.game_state import GameState, VALID_NODES, get_adjacent_tiles
-
-
-# ── Tunable Parameters ──────────────────────────────────────────────────────
-
-# Intrinsic value multiplier per resource type.
-# Index order: [Wood, Brick, Wool, Grain, Ore].
-BASE_RESOURCE_STRENGTH: List[float] = [1.0, 1.0, 0.9, 1.27, 1.2]
-
-# Controls how aggressively relative-strength is clamped.
-# Applied as ``strength ** dampening_factor`` (values < 1 compress,
-# values > 1 amplify).  0.5 is a square-root dampener.
-DAMPENING_FACTOR: float = 0.8
-
-# Multiplier applied to port strength when the spot has port access.
-PORT_BONUS: float = 3
-
-# Flat bonus added when a spot has total production >= 10 *and*
-# at least 3 distinct resource types.
-PRIME_VARIATE_BONUS: float = 4
-
-# Multiplier for the complement-parity bonus.  For each
-# complement pair (Wood/Brick, Grain/Ore), if the spot produces
-# both, the bonus is ``parity_preference × min(prod_a, prod_b)``.
-PARITY_PREFERENCE: float = 1.3
-
-# Five floats that scale the five evaluation metrics before summing:
-# [raw_production, scarcity_weighted, port, prime_variate, parity].
-EVAL_WEIGHTS: List[float] = [1.0, 1.5, 1.0, 1.0, 1.0]
-
-# Score spread controller for settle_decision softmax.
-# Controls probability distribution: higher K = more different probabilities (more peaked),
-# lower K = more similar probabilities (more uniform). K=1.0 is standard softmax.
-# ALREADY TUNED
-K: float = 1.5
+from parameters import (
+    BASE_RESOURCE_STRENGTH,
+    DAMPENING_FACTOR,
+    PORT_BONUS,
+    PRIME_VARIATE_BONUS,
+    PARITY_PREFERENCE,
+    EVAL_WEIGHTS,
+    K,
+)
 
 
 # ── Dice-number → pip mapping ───────────────────────────────────────────────
@@ -249,7 +224,8 @@ def score_settlement(
     prime_variate_val = 0.0
     distinct_resources = sum(1 for p in prod if p > 0)
     if raw_prod >= 10 and distinct_resources >= 3:
-        prime_variate_val = PRIME_VARIATE_BONUS
+        lowest_pip = min(p for p in prod if p > 0)
+        prime_variate_val = PRIME_VARIATE_BONUS * lowest_pip
 
     # Metric 5: complement parity bonus
     # Wood(0)↔Brick(1), Grain(3)↔Ore(4)

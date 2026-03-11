@@ -252,3 +252,90 @@ after every analysis returns, sum (case_probability * player_0_chance_of_winning
 return the one with the highest score.
 
 make x a tunable param, set it to 5
+
+######################################################
+AI analysis on inefficiency
+
+Settle Bot Inefficiencies
+1. Redundant evaluate_init_board inside every analyze_init_board call
+Each _ai_score_p0 → analyze_init_board call runs evaluate_init_board(gs) (which includes predict_robber, BFS reachability, rank_all_spots, etc.) purely to build prompt text. With x=4 options × ai_cutoff=8, that's 32 full algorithmic evaluations run inside the AI pipeline — but many placeouts within the same option share nearly identical board states (differing only in opponent positions). The algo results are used only for prompt context, but are recomputed from scratch each time.
+
+Impact: evaluate_init_board calls predict_robber (which itself calls rank_all_spots and BFS), _compute_player_production (4× per player), _check_portability (BFS per settlement per player), and _compute_relative_strengths. That's substantial CPU per call × 32 calls.
+
+2. _open_spots_summary runs nested BFS — O(nodes × settlements × BFS)
+In init_analysis.py:260, _open_spots_summary calls rank_all_spots(gs, top_n=12) then for each of the 12 spots, does a BFS from every placed settlement to compute distance. That's 12 × 8 = 96 BFS traversals per analyze_init_board call, and this runs for every AI-scored placeout.
+
+At 32 AI placeouts: ~3,072 BFS traversals just for building prompt text.
+
+3. _format_robber_predictions re-runs predict_robber
+In init_analysis.py:368, _format_robber_predictions calls predict_robber(gs) independently. But evaluate_init_board (called just 4 lines above in analyze_init_board) already calls predict_robber internally. The results are never passed through — robber prediction runs twice per AI call (64 total instead of 32).
+4. _build_prompt_1 calls rank_all_spots again (3rd time per AI call)
+_open_spots_summary → rank_all_spots(gs, top_n=12) is the 3rd call to the spot ranker per analyze_init_board invocation. evaluate_init_board internally computes relative strengths and production; _open_spots_summary re-scores all nodes from scratch.
+
+5. Dead code: _score_option is never called
+The entire settle_bot.py:78 function (lines 78–131) is unused. find_best_settle was refactored to batch all AI calls globally with asyncio.gather, but the per-option _score_option helper was left behind. It duplicates the sorting/splitting logic that find_best_settle now does inline.
+
+6. Algo scoring blocks the event loop after AI calls complete
+In settle_bot.py:258 (lines 258–267), after asyncio.gather returns, the algo-scored placeouts are evaluated synchronously in a tight loop. _algo_score_p0 calls evaluate_init_board (with predict_robber + BFS), which is CPU-bound. With x=4 options and MAX_WINDOW=20 placeouts, if ai_cutoff=8, that's up to 48 sync evaluations blocking the loop. Since there's no other async work pending at that point this is functionally fine, but it means the algo scoring can't overlap with any late-arriving AI responses.
+
+7. Prompt 2 rebuilds _trade_synergies from scratch
+init_analysis.py:499 computes _trade_synergies(gs) by iterating all nodes × tiles for per-number production data. This is a subset of what _production_by_number (used in prompt 1) already computed. The two functions independently walk the same gs.map.nodes → gs.map.tiles structure and build identical per-number/per-player production maps.
+
+8. full_report string is built but never used by the bot
+analyze_init_board returns (probs, full_report) — a large concatenated string of both AI call outputs. But _ai_score_p0 immediately discards it:
+
+
+#################################################
+
+
+
+Below is an analysis on potential inefficiencies for the settle bot. Based on my analysis, figure out which one of them are major contributors to the slowdown.
+
+Note: I need the program to complete in sub 5 seconds
+
+Observations:
+1. python3 tests/test_settle_bot.py sample.json --ai-cutoff 0 
+- this runs in 0.8 seconds
+
+2. python3 tests/test_settle_bot.py sample.json --ai-cutoff 1
+- This runs in 53 seconds.
+
+3. python3 tests/test_settle_bot.py sample.json --ai-cutoff 4
+- THis runs in 65 seconds
+
+4. python3 tests/test_settle_bot.py sample.json --ai-cutoff 8
+- This runs in 74.3 seconds.
+
+
+
+(venv) mawa@LAPTOP-KNDSOTO5:~/projects/wpp/src$ python3 tests/test_ai.py
+=== Sync Call ===
+42
+  ⏱ 1.40s
+
+=== Async Call ===
+Start by building settlements on hexes with diverse and high-probability resource numbers (5, 6, 8, 9) to ensure steady resource flow. Prioritize placing your first two settlements on spots that give you access to brick and wood early, so you can build roads and expand quickly. Then, focus on building roads to secure valuable expansion spots before your opponents.
+  ⏱ 1.72s
+
+
+Here is the thought process you should start with:
+1. ai cutoff = 0 means all 20 algorithmic analysis. It's fast. why?
+2. Using one AI and 19 algorithmic makes it all the way to 53 seconds, but the growth is not as dramatic after the first. Why? the AI test above is ran around the same time as these tests, making one AI prompt takes about 2 seconds. If the code is true async, it should be a lot quicker?
+
+Note: The thought process above might be wrong. Be brave enough to challenge it. Treat each question not like a rhetorical one, but an actual question.
+
+Give me an analysis on why the program is this slow after the introduction of AI, and analyze potential solutions. DO NOT IMPLEMENT.
+
+
+Help me squash the two current AI prompts into 1. 
+1. The merged prompt must force the model to go through the same process to reach the same answer. The model I have been and will be using for this is gpt 5 mini.
+1.1. PRESERVE as much of the functionality and behavior as possible. your goal is for the squashed prompt perform as closely as the current two prompts as possible.
+2. change the implementation of the settle bot to adapt to this merging of prompts. Make sure async calls for each case still works. I should be observing a speedup because now there won't be a need to call AI twice sequencially.
+
+
+
+Reformat the codebase for me. Find all parameters in src (mainly in the two folder I provided above). Move all parameters in there to a parameters.py file directly under src. Fix all import paths so the program functions as normal. After your change, the code should behave identically as before. Make sure to copy the description for each param along with it to parameters.py
+
+
+
+Change the implementation of extreme_bonus for me. This bonus should be given to the person whose strategy index is furthest away from the average of the other 3 players.

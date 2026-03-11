@@ -36,11 +36,7 @@ from base_computes.game_state import GameState
 from base_computes.init_eval import evaluate_init_board
 from base_computes.settle_sim import simulate_settle
 from settle_process.init_analysis import analyze_init_board
-
-
-# ── Tunable Parameters ──────────────────────────────────────────────────────
-
-AI_CUTOFF: int = 8  # PARAMETER: top X placeouts per option scored by AI
+from parameters import AI_CUTOFF, AI_SERVICE_TIER
 
 
 # ── Internal helpers ────────────────────────────────────────────────────────
@@ -57,6 +53,7 @@ async def _ai_score_p0(
     *,
     provider: Optional[AIProvider] = None,
     model: Optional[str] = None,
+    service_tier: Optional[str] = AI_SERVICE_TIER,
     debug: bool = False,
 ) -> float:
     """Return player 0's win probability from the full AI pipeline."""
@@ -65,6 +62,8 @@ async def _ai_score_p0(
         ai_kwargs["provider"] = provider
     if model is not None:
         ai_kwargs["model"] = model
+    if service_tier is not None:
+        ai_kwargs["service_tier"] = service_tier
 
     probs, _report = await analyze_init_board(
         gs,
@@ -83,6 +82,7 @@ async def _score_option(
     *,
     provider: Optional[AIProvider] = None,
     model: Optional[str] = None,
+    service_tier: Optional[str] = AI_SERVICE_TIER,
     debug: bool = False,
     verbose: bool = False,
 ) -> float:
@@ -109,7 +109,13 @@ async def _score_option(
             )
 
         ai_tasks = [
-            _ai_score_p0(gs, provider=provider, model=model, debug=debug)
+            _ai_score_p0(
+                gs,
+                provider=provider,
+                model=model,
+                service_tier=service_tier,
+                debug=debug,
+            )
             for gs, _prob in ai_boards
         ]
         ai_results = await asyncio.gather(*ai_tasks)
@@ -143,6 +149,7 @@ async def find_best_settle(
     ai_cutoff: int = AI_CUTOFF,
     provider: Optional[AIProvider] = None,
     model: Optional[str] = None,
+    service_tier: Optional[str] = AI_SERVICE_TIER,
     verbose: bool = True,
     debug: bool = False,
 ) -> Tuple[
@@ -166,6 +173,8 @@ async def find_best_settle(
         AI provider override.
     model : str, optional
         Model override.
+    service_tier : str, optional
+        OpenAI service tier override.
     verbose : bool
         Print progress to stdout.
     debug : bool
@@ -232,7 +241,13 @@ async def find_best_settle(
         print(f"\n[Bot] Launching {len(ai_jobs)} AI calls concurrently…")
 
     ai_tasks = [
-        _ai_score_p0(gs, provider=provider, model=model, debug=debug)
+        _ai_score_p0(
+            gs,
+            provider=provider,
+            model=model,
+            service_tier=service_tier,
+            debug=debug,
+        )
         for _, _, gs, _ in ai_jobs
     ]
     ai_results = await asyncio.gather(*ai_tasks) if ai_tasks else []
@@ -272,7 +287,7 @@ async def find_best_settle(
 
     # ── Step 4: pick the winner ──────────────────────────────────────
     option_scores.sort(key=lambda x: x[2], reverse=True)
-    best_settle, best_road, best_score = option_scores[0]
+    best_settle, best_road, _best_score = option_scores[0]
 
     if verbose:
         print("=" * 60)

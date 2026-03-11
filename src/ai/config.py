@@ -48,7 +48,7 @@ _ENV_KEYS: dict[AIProvider, str] = {
 
 # Default model per provider (override at call-time if needed)
 DEFAULT_MODELS: dict[AIProvider, str] = {
-    AIProvider.OPENAI: "gpt-4.1-mini",
+    AIProvider.OPENAI: "gpt-5-mini",
     AIProvider.ANTHROPIC: "claude-sonnet-4-20250514",
     AIProvider.GOOGLE: "gemini-2.5-flash",
 }

@@ -12,30 +12,16 @@ from typing import Dict, List, Tuple
 
 from base_computes.game_state import GameState, VALID_NODES
 from base_computes.settle_eval_simple import (
-    BASE_RESOURCE_STRENGTH,
     _number_to_pips,
     _compute_relative_strengths,
     _softmax,
 )
-
-
-# ── Tunable Parameters ──────────────────────────────────────────────────────
-
-# How much robbing cares about raw production power vs. rare resources.
-# Higher = more weight on raw production; lower = more weight on resource
-# scarcity.  Added to each dampened relative strength before scoring.
-RAW_POWER_PREFERENCE: float = 0.3
-
-# Dampening factor for relative-strength calculation (same formula as
-# settle scoring, but a separate value so it can be tuned independently).
-# Applied as ``strength ** dampening``.  < 1 compresses, > 1 amplifies.
-ROBBER_DAMPENING_FACTOR: float = 0.6
-
-# Softmax spread factor for converting tile scores → probabilities.
-# Higher = more peaked (strongest tile gets much higher probability),
-# lower  = more uniform.  Separate from the settle-decision K so it
-# can be tuned independently.
-ROBBER_K: float = 0.2
+from parameters import (
+    BASE_RESOURCE_STRENGTH,
+    RAW_POWER_PREFERENCE,
+    ROBBER_DAMPENING_FACTOR,
+    ROBBER_K,
+)
 
 
 # ── Internals ────────────────────────────────────────────────────────────────

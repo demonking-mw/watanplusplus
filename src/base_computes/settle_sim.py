@@ -25,16 +25,7 @@ from base_computes.settle_eval_simple import (
     _pick_road,
 )
 from base_computes.settle_options import top_settle_spots
-
-
-# ── Tunable Parameters ──────────────────────────────────────────────────────
-
-MAX_WINDOW: int = 20  # PARAMETER: max placeout cases retained per settle option
-
-# ── Standard 4-player snake draft order ─────────────────────────────────────
-# Round 1: 0 → 1 → 2 → 3
-# Round 2: 3 → 2 → 1 → 0
-SETTLE_ORDER: List[int] = [0, 1, 2, 3, 3, 2, 1, 0]
+from parameters import MAX_WINDOW, SETTLE_ORDER
 
 
 # ── Internal helpers ────────────────────────────────────────────────────────
