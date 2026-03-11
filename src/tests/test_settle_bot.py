@@ -5,7 +5,7 @@ Usage::
     cd src
     python3 tests/test_settle_bot.py sample5.json
     python3 tests/test_settle_bot.py sample5.json --ai-cutoff 3
-    python3 tests/test_settle_bot.py sample5.json --provider openai --model gpt-4.1-mini
+    python3 tests/test_settle_bot.py sample5.json --provider openai --model gpt-5-mini
     python3 tests/test_settle_bot.py sample5.json --debug
     python3 tests/test_settle_bot.py sample5.json --x 4 --ai-cutoff 2
 """
@@ -29,11 +29,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the settle bot orchestrator")
     parser.add_argument("json_file", help="Path to sample JSON file")
     parser.add_argument(
-        "--x", type=int, default=4,
+        "--x",
+        type=int,
+        default=4,
         help="Number of settle options to evaluate (default: 6)",
     )
     parser.add_argument(
-        "--ai-cutoff", type=int, default=None,
+        "--ai-cutoff",
+        type=int,
+        default=None,
         help="Top N placeouts per option scored by AI (default: uses AI_CUTOFF from settle_bot)",
     )
     parser.add_argument(
@@ -43,8 +47,15 @@ def main() -> None:
         help="AI provider override",
     )
     parser.add_argument("--model", default=None, help="Model override")
+    parser.add_argument(
+        "--service-tier",
+        default=None,
+        help="OpenAI service tier override (for example: priority, flex, auto)",
+    )
     parser.add_argument("--quiet", action="store_true", help="Suppress progress output")
-    parser.add_argument("--debug", action="store_true", help="Print AI prompts and responses")
+    parser.add_argument(
+        "--debug", action="store_true", help="Print AI prompts and responses"
+    )
     args = parser.parse_args()
 
     path = Path(args.json_file)
@@ -68,6 +79,8 @@ def main() -> None:
         bot_kwargs["provider"] = provider_map[args.provider]
     if args.model:
         bot_kwargs["model"] = args.model
+    if args.service_tier:
+        bot_kwargs["service_tier"] = args.service_tier
 
     if args.ai_cutoff is not None:
         bot_kwargs["ai_cutoff"] = args.ai_cutoff

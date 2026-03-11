@@ -19,7 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from base_computes import GameState
-from base_computes.settle_sim import simulate_settle, MAX_WINDOW
+from base_computes.settle_sim import simulate_settle
+from parameters import MAX_WINDOW
 
 # Default values
 DEFAULT_X = 6  # From top_settle_spots signature

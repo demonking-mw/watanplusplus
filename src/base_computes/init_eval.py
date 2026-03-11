@@ -35,54 +35,24 @@ from base_computes.settle_eval_simple import (
     _number_to_pips,
     _compute_relative_strengths,
     _bfs_from_node,
-    BASE_RESOURCE_STRENGTH,
 )
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Tunable Parameters — NEVER overwritten below.  Adjust freely.
-# ══════════════════════════════════════════════════════════════════════════════
-
-# --- Strategy-alignment bonuses (flat additions to total score) ---
-WB_BONUS: float = 2.0  # most wood/brick-focused player (lowest strategy index)
-OWS_BONUS: float = 2.0  # most ore/wheat/sheep-focused player (highest strategy index)
-EXTREME_BONUS: float = 1.5  # most polarised strategy (furthest from 0.5)
-
-# --- Production-pair multiplier ---
-# When a player has both halves of a complement pair (wood+brick OR
-# wheat+ore) on the SAME dice number, those tiles' effective production
-# is multiplied by this value FOR THAT PLAYER ONLY.
-PROD_PAIR_BONUS: float = 1.3
-
-# --- Aggregate-production scoring weights ---
-TOTAL_MULTIPLIER: float = 0.5  # × sum(player's paired production)
-TOTAL_VALUED_MULTIPLIER: float = 0.8  # × strength-weighted paired production
-
-# --- Port-accessibility bonus ---
-PORTABILITY_BONUS: float = 2.0
-
-# --- Positional-advantage bonuses ---
-BEST_ROAD_BONUS: float = 1.5  # player with highest wood+brick production
-BEST_CITY_BONUS: float = 1.5  # player with highest ore+grain production
-
-# --- No-wheat penalty ---
-# Applied when a player's pre-robber, pre-pair-bonus wheat (grain)
-# production is ≤ 2 pips.  Removed entirely if the player already
-# sits on a 3:1 port; reduced to 1× if a 3:1 port is reachable
-# within PORT_REACH_MIN .. PORT_REACH_MAX road hops.
-NO_WHEAT: float = 1.0
-
-# --- Targeting penalty ---
-# Each player targets a rival; subtract this from the target's score.
-# If multiple players target the same rival, penalty stacks.
-TARGET_PENALTY: float = 1.5
-
-# --- Relative-strength dampening (separate from settle/robber models) ---
-INIT_EVAL_DAMPENING: float = 0.7
-
-# --- Port reachability BFS distance limits (inclusive) ---
-PORT_REACH_MIN: int = 2
-PORT_REACH_MAX: int = 3
+from parameters import (
+    BASE_RESOURCE_STRENGTH,
+    WB_BONUS,
+    OWS_BONUS,
+    EXTREME_BONUS,
+    PROD_PAIR_BONUS,
+    TOTAL_MULTIPLIER,
+    TOTAL_VALUED_MULTIPLIER,
+    PORTABILITY_BONUS,
+    BEST_ROAD_BONUS,
+    BEST_CITY_BONUS,
+    NO_WHEAT,
+    TARGET_PENALTY,
+    INIT_EVAL_DAMPENING,
+    PORT_REACH_MIN,
+    PORT_REACH_MAX,
+)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -303,7 +273,8 @@ def evaluate_init_board(
     - ``dot(paired, rel_strengths) × TOTAL_VALUED_MULTIPLIER``
     - ``WB_BONUS`` for the most WB-focused player (lowest strat index).
     - ``OWS_BONUS`` for the most OWS-focused player (highest strat index).
-    - ``EXTREME_BONUS`` for the most polarised strategy (also covers
+    - ``EXTREME_BONUS`` for the most polarised strategy — furthest from
+      the average of the other players' strategy indices (also covers
       "unique guy" — the player whose strategy differs most from neutral).
     - ``BEST_ROAD_BONUS`` for highest wood + brick production.
     - ``BEST_CITY_BONUS`` for highest ore + grain production.
@@ -390,7 +361,9 @@ def evaluate_init_board(
     # ── Determine bonus recipients ───────────────────────────────────
     min_strat = min(strat_indices)
     max_strat = max(strat_indices)
-    extremes = [abs(s - 0.5) for s in strat_indices]
+    n = len(strat_indices)
+    total_strat = sum(strat_indices)
+    extremes = [abs(s - (total_strat - s) / (n - 1)) for s in strat_indices]
     max_extreme = max(extremes)
 
     # Road potential: paired wood(0) + brick(1)

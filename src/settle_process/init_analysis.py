@@ -1,22 +1,16 @@
 """AI-powered initial board state analysis agent.
 
 Takes a completed setup board (all 8 settlements placed) and performs
-a 2-call sequential AI analysis to produce a relative win-probability
-4-tuple.
+a single AI analysis call to produce a relative win-probability 4-tuple.
 
 Architecture
 ------------
-**Call 1 — Situational Analysis**
+**Single Call — Full Analysis + Win Probability Synthesis**
     Feed: full board layout, ports, roads, settlements, init_eval scores,
-    starting hands, open spots, per-number production, robber predictions.
-    Ask:  core objectives per player, races for key spots, activation
-    difficulty, building space.
-
-**Call 2 — Strategic Dynamics + Win Probability Synthesis**
-    Feed: Call 1 output + trade synergy data, algorithmic targeting,
-    baseline scores.
-    Ask:  race winners, trade exploits, geopolitical targeting,
-    final 4-tuple win probabilities with justification.
+    starting hands, open spots, per-number production, robber predictions,
+    trade synergies, algorithmic targeting, baseline scores.
+    Ask:  core objectives, races, activation timeline, race winners,
+    trade exploits, and final 4-tuple win probabilities.
 
 Usage::
 
@@ -25,7 +19,7 @@ Usage::
 
     probs, report = asyncio.run(analyze_init_board(gs))
     # probs = (0.22, 0.31, 0.19, 0.28)
-    # report = full text from the 3 AI calls
+    # report = full text from the AI call
 """
 
 from __future__ import annotations
@@ -44,17 +38,14 @@ from base_computes.settle_eval_simple import (
     _compute_relative_strengths,
     _total_production_by_resource,
     _bfs_from_node,
-    BASE_RESOURCE_STRENGTH,
 )
 from base_computes.robber_predict import predict_robber
-
-
-# ── Tunable Parameters ──────────────────────────────────────────────────────
-
-# AI call settings
-AGENT_TEMPERATURE: float = 0.4  # low temperature for analytical tasks
-AGENT_MAX_TOKENS_1: int = 5000  # call 1: situational analysis (includes full board)
-AGENT_MAX_TOKENS_2: int = 5500  # call 2: dynamics + win probability synthesis
+from parameters import (
+    BASE_RESOURCE_STRENGTH,
+    AGENT_TEMPERATURE,
+    AGENT_MAX_TOKENS,
+    AGENT_SERVICE_TIER,
+)
 
 
 # ── Data preparation helpers ────────────────────────────────────────────────
@@ -367,33 +358,24 @@ def _format_robber_predictions(gs: GameState) -> str:
 SYSTEM_PROMPT = """You are an expert Catan strategy analyst. You are analysing the board state at the moment when all 4 players have finished placing their initial two settlements (8 total) and before the game begins.
 
 Key Catan facts for reference:
-- Road costs 1 Wood + 1 Brick
-- Settlement costs 1 Wood + 1 Brick + 1 Wool + 1 Grain
-- City costs 2 Grain + 3 Ore
-- Development card costs 1 Wool + 1 Grain + 1 Ore
-- Longest Road (5+ roads) = 2 VP; Largest Army (3+ knights) = 2 VP
-- Win at 10 VP; settlements = 1 VP, cities = 2 VP
-- When 7 is rolled, players with 8+ cards discard half; then robber is moved
-- Robber blocks production on the tile it sits on
 - Resource scarcity creates trade leverage; 4:1 bank trade is always available
 - Pips measure expected production: a 6 or 8 = 5 pips (5/36 chance), 5 or 9 = 4 pips, etc.
 - Strategy index: 0 = pure Wood/Brick ("road" strategy), 1 = pure Ore/Wheat/Sheep ("city/dev" strategy)
 - In the setup phase, each player receives one of each resource from tiles adjacent to their SECOND settlement
-- Complement pairs: Wood+Brick (for roads/settlements), Grain+Ore (for cities)
 
-IMPORTANT: You are supplementing an algorithmic analysis, not replacing it. The algorithmic evaluation is reasonable but lacks strategic depth: it doesn't model races, trade dynamics, activation order, or geopolitical factors. Your job is to add THAT strategic nuance. Be specific and justify claims with board data."""
+IMPORTANT: You are supplementing an algorithmic analysis, not replacing it. The algorithmic evaluation is reasonable but lacks strategic depth: it doesn't model races, trade dynamics, activation order. Your job is to add THAT strategic nuance with little explanation."""
 
 
 # ── Prompt builders ─────────────────────────────────────────────────────────
 
 
-def _build_prompt_1(
+def _build_merged_prompt(
     gs: GameState,
     scores: Tuple[float, ...],
     results: List[PlayerEval],
     hands: List[List[int]],
 ) -> str:
-    """Build the prompt for Call 1: Situational Analysis."""
+    """Build the single merged prompt: full analysis + win probabilities."""
 
     settlement_info = _settlement_details(gs)
     eval_info = _format_eval_results(scores, results)
@@ -404,8 +386,9 @@ def _build_prompt_1(
     board_info = _board_layout(gs)
     ports_info = _ports_summary(gs)
     roads_info = _roads_summary(gs)
+    trade_synergies = _trade_synergies(gs)
 
-    return f"""Analyse this Catan board state at the start of the game (after setup, before first turn).
+    return f"""Analyse this Catan board state at the start of the game (after setup, before first turn). You must work through each analysis phase in order before producing final win probabilities.
 
 === FULL BOARD LAYOUT ===
 The board is a hex grid of 37 tiles (IDs 0-36), laid out row-major (top-to-bottom, left-to-right) in rows of size [4, 5, 6, 7, 6, 5, 4]. The 19 inner tiles are land (resource + number token); the 18 outer tiles are ocean (some are ports). Two tiles are adjacent if they share an edge in the hex grid. A settlement sits at the intersection of exactly 3 mutually adjacent tiles, keyed as "T1_T2_T3" (sorted ascending). A road sits on the edge between 2 adjacent tiles, keyed as "T1_T2".
@@ -413,7 +396,7 @@ Format: TileID:Resource(#NumberToken, pips) — pips = expected rolls per 36 dic
 {board_info}
 
 === PORTS ===
-Port access nodes (settlement spots that grant port trading). Each node is "T1_T2_T3". Two nodes with the same port type are the two access points of one physical port. Types: 2:1 trades a specific resource at 2:1 ratio; 3:1 trades any resource at 3:1 ratio.
+Port access is in the form of tile - port capturing all tiles with port access.
 {ports_info}
 
 === ROADS PLACED ===
@@ -423,27 +406,47 @@ Port access nodes (settlement spots that grant port trading). Each node is "T1_T
 Each player has 2 settlements. The tiles adjacent to each settlement produce resources when their number is rolled.
 {settlement_info}
 
+=== STARTING HANDS ===
+Each player receives one of each resource from tiles adjacent to their SECOND settlement.
+{hand_info}
+
+=== PRODUCTION BY DICE NUMBER ===
+For each dice roll, which players produce what resources and how many pips:
+{prod_by_num}
+
+=== ROBBER PREDICTIONS ===
+Algorithmic prediction of where each player would most likely place the robber:
+{robber_info}
+
 === ALGORITHMIC EVALUATION (init_eval) ===
 This is a heuristic scoring of each player's position. It accounts for post-robber production, strategy alignment, port access, number pairing bonuses, and targeting. The normalised scores are NOT win probabilities — they are relative positional strength.
 {eval_info}
 
-=== STARTING HANDS ===
-Each player received one resource card per resource tile adjacent to their SECOND settlement.
-{hand_info}
-
-=== PRODUCTION BY DICE NUMBER ===
-What each player receives when a specific number is rolled. Higher pip count = more production from that tile per roll.
-{prod_by_num}
+=== ALGORITHMIC BASELINE SCORES ===
+The pure algorithmic evaluator (init_eval) produced these normalised scores:
+  Player 0: {scores[0]:.4f}
+  Player 1: {scores[1]:.4f}
+  Player 2: {scores[2]:.4f}
+  Player 3: {scores[3]:.4f}
+These capture production quality, strategy alignment, port access, number pairing, and basic targeting, but do NOT capture: races, trade dynamics, activation timing.
 
 === TOP OPEN SETTLEMENT SPOTS ===
 The highest-scoring available spots for future expansion, with distance to each player's existing settlements in road hops.
 {open_spots}
 
-=== ROBBER PREDICTION ===
-Algorithmic prediction of where each player would place the robber. Used to estimate post-robber production. Probabilities per player sum to 1.
-{robber_info}
+=== TRADE SYNERGIES ===
+When a number is rolled, multiple players often receive resources simultaneously. If they produce complementary resources on the same number, a natural trade opportunity exists:
+{trade_synergies}
 
-Please analyse the following (be specific, reference board positions and numbers):
+=== ALGORITHMIC TARGETING ===
+The algorithmic evaluator predicted these targeting relationships (each player targets a rival):
+{chr(10).join(f"  Player {r.player_id} targets Player {r.target}" for r in results)}
+
+---
+
+You MUST complete the following phases in order, outputting each section. Keep analysis concise.
+
+**PHASE 1 — Situational Analysis**
 
 1. **Core Objectives**: For each player, what must they do ASAP to "fully activate" their setup? Consider:
    - What resources do they lack? What key spot would complete their strategy?
@@ -457,76 +460,23 @@ Please analyse the following (be specific, reference board positions and numbers
    - How many roads does each player need to get there?
    - Who has the starting cards to build roads faster?
 
-3. **Building Space**: For each road-oriented player, how many viable expansion spots do they have within 3-4 roads? Can opponents cut them off?
+3. **Activation Timeline**: Estimate roughly how many rounds each player would take to achieve their key objective (building the third settlement, reaching a port, upgrading to a city).
 
-4. **Activation Timeline**: Estimate roughly how many turns each player needs to reach their first major milestone (3rd settlement, first city, or longest road).
+**PHASE 2 — Strategic Dynamics**
 
-Output your analysis in structured sections."""
+4. **Race Winners**: For each race you identified, who is most likely to win and why? Consider starting hand advantage and production advantage.
 
-
-def _build_prompt_2(
-    gs: GameState,
-    call1_output: str,
-    algo_scores: Tuple[float, ...],
-    results: List[PlayerEval],
-) -> str:
-    """Build the prompt for Call 2: Strategic Dynamics + Win Probability Synthesis."""
-
-    trade_synergies = _trade_synergies(gs)
-
-    return f"""Continue your Catan analysis. Below is your previous situational analysis, plus new data on trade dynamics. After your analysis, you will produce final win probabilities.
-
-=== YOUR PREVIOUS ANALYSIS (Call 1) ===
-{call1_output}
-
-=== TRADE SYNERGIES ===
-When a number is rolled, multiple players often receive resources simultaneously. If they produce complementary resources on the same number, a natural trade opportunity exists. These are the algorithmically detected same-number trade synergies:
-{trade_synergies}
-
-=== ALGORITHMIC TARGETING ===
-The algorithmic evaluator predicted these targeting relationships (each player targets a rival):
-{chr(10).join(f"  Player {r.player_id} targets Player {r.target}" for r in results)}
-
-=== ALGORITHMIC BASELINE SCORES ===
-The pure algorithmic evaluator (init_eval) produced these normalised scores:
-  Player 0: {algo_scores[0]:.4f}
-  Player 1: {algo_scores[1]:.4f}
-  Player 2: {algo_scores[2]:.4f}
-  Player 3: {algo_scores[3]:.4f}
-These capture production quality, strategy alignment, port access, number pairing, and basic targeting, but do NOT capture: races, trade dynamics, activation timing, geopolitical factors, or building space.
-
---- PART A: STRATEGIC DYNAMICS ---
-
-Analyse the following:
-
-1. **Race Winners**: For each race you identified, who is most likely to win and why? Consider:
-   - Starting hand advantage (who can build a road immediately?)
-   - Production advantage (who gets road materials faster?)
-   - Does winning the race require specific dice rolls?
-
-2. **Trade Exploits**: Can any player leverage natural trade synergies to win a race or gain advantage?
+5. **Trade Exploits**: Can any player leverage natural trade synergies to win a race or gain advantage?
    - Identify players who co-produce complementary resources on the same number
    - Could a third player's trade with one racer decide the outcome of a race?
 
-3. **Geopolitical Targeting**: After the first 3-5 turns:
-   - Who will likely be seen as the leader and get robbed?
-   - If someone wins a key race, do they become a target?
-   - Are there alliances of convenience (e.g. two city players who don't compete for the same spots)?
+**PHASE 3 — Win Probability Synthesis**
 
---- PART B: WIN PROBABILITY SYNTHESIS ---
-
-Now synthesise everything (your Call 1 analysis + the dynamics above + the algorithmic baseline) into final win probabilities. You MUST:
-
-1. For each player, write 2-3 sentences summarising their strongest advantage and biggest risk.
-
-2. State any significant adjustment you're making to the algorithmic scores and why (e.g., "Player 2 is likely to lose the race for spot X, reducing their expected production significantly").
-
-3. Output your final win probabilities in EXACTLY this format on its own line:
+Synthesise everything from Phase 1, Phase 2, and the algorithmic baseline into final win probabilities. Output your final win probabilities in EXACTLY this format on its own line:
 PROBABILITIES: [X.XX, X.XX, X.XX, X.XX]
 
 The four values must sum to 1.00 (within rounding). They represent Player 0, 1, 2, 3 respectively.
-
-IMPORTANT: The probabilities should reflect relative likelihood of winning the game, not just positional strength. A player with great position but likely to be targeted may have lower win probability. A player with moderate position but good activation timing and no enemies may outperform."""
+"""
 
 
 # ── Response parsing ────────────────────────────────────────────────────────
@@ -555,10 +505,11 @@ async def analyze_init_board(
     *,
     provider: Optional[AIProvider] = None,
     model: Optional[str] = None,
+    service_tier: Optional[str] = AGENT_SERVICE_TIER,
     verbose: bool = False,
     debug: bool = False,
 ) -> Tuple[Tuple[float, float, float, float], str]:
-    """Run the 2-call AI analysis pipeline on an initial board state.
+    """Run the single-call AI analysis on an initial board state.
 
     Parameters
     ----------
@@ -568,6 +519,8 @@ async def analyze_init_board(
         AI provider override (default: use configured default).
     model : str, optional
         Model override.
+    service_tier : str, optional
+        OpenAI service tier override.
     verbose : bool
         If True, print progress to stdout.
     debug : bool
@@ -577,7 +530,7 @@ async def analyze_init_board(
     -------
     (probabilities, full_report)
         probabilities: 4-tuple of floats summing to 1.
-        full_report:   concatenation of all AI call outputs.
+        full_report:   full text from the AI call.
     """
     # ── Step 0: run algorithmic evaluations ──────────────────────────
     if verbose:
@@ -591,43 +544,28 @@ async def analyze_init_board(
         ai_kwargs["provider"] = provider
     if model is not None:
         ai_kwargs["model"] = model
+    if service_tier is not None:
+        ai_kwargs["service_tier"] = service_tier
 
-    # ── Call 1: Situational Analysis ─────────────────────────────────
+    # ── Single merged AI call ────────────────────────────────────────
     if verbose:
-        print("[Agent] Call 1: Situational Analysis...")
+        print("[Agent] Running merged analysis call...")
 
-    prompt1 = _build_prompt_1(gs, algo_scores, eval_results, hands)
-    call1_output = await query_ai_async(
-        prompt1,
+    prompt = _build_merged_prompt(gs, algo_scores, eval_results, hands)
+    ai_output = await query_ai_async(
+        prompt,
         system=SYSTEM_PROMPT,
         temperature=AGENT_TEMPERATURE,
-        max_tokens=AGENT_MAX_TOKENS_1,
+        max_tokens=AGENT_MAX_TOKENS,
         debug=debug,
         **ai_kwargs,
     )
 
     if verbose:
-        print(f"[Agent] Call 1 complete ({len(call1_output)} chars)")
-
-    # ── Call 2: Strategic Dynamics + Win Probability Synthesis ───────
-    if verbose:
-        print("[Agent] Call 2: Dynamics & Win Probabilities...")
-
-    prompt2 = _build_prompt_2(gs, call1_output, algo_scores, eval_results)
-    call2_output = await query_ai_async(
-        prompt2,
-        system=SYSTEM_PROMPT,
-        temperature=AGENT_TEMPERATURE,
-        max_tokens=AGENT_MAX_TOKENS_2,
-        debug=debug,
-        **ai_kwargs,
-    )
-
-    if verbose:
-        print(f"[Agent] Call 2 complete ({len(call2_output)} chars)")
+        print(f"[Agent] AI call complete ({len(ai_output)} chars)")
 
     # ── Parse probabilities ──────────────────────────────────────────
-    probs = _parse_probabilities(call2_output)
+    probs = _parse_probabilities(ai_output)
     if probs is None:
         if verbose:
             print(
@@ -637,17 +575,12 @@ async def analyze_init_board(
         probs = algo_scores
 
     # ── Compile full report ──────────────────────────────────────────
-    separator = "\n" + "=" * 72 + "\n"
     full_report = (
         f"{'=' * 72}\n"
-        f"CALL 1: SITUATIONAL ANALYSIS\n"
+        f"MERGED ANALYSIS + WIN PROBABILITIES\n"
         f"{'=' * 72}\n\n"
-        f"{call1_output}\n"
-        f"{separator}"
-        f"CALL 2: DYNAMICS & WIN PROBABILITIES\n"
-        f"{'=' * 72}\n\n"
-        f"{call2_output}\n"
-        f"{separator}"
+        f"{ai_output}\n\n"
+        f"{'=' * 72}\n"
         f"FINAL PROBABILITIES: {probs}\n"
         f"ALGORITHMIC BASELINE: {algo_scores}\n"
     )

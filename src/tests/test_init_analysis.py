@@ -5,7 +5,7 @@ Usage::
     cd src
     python3 tests/test_init_analysis.py sample5.json
     python3 tests/test_init_analysis.py sample5.json --provider anthropic
-    python3 tests/test_init_analysis.py sample5.json --provider google --model gemini-2.5-flash
+    python3 tests/test_init_analysis.py sample5.json --provider openai --model gpt-5-mini --service-tier priority
     python3 tests/test_init_analysis.py sample5.json --debug
 
 Always runs settle simulation to produce a complete board, then analyses it.
@@ -35,6 +35,11 @@ def main() -> None:
         help="AI provider override",
     )
     parser.add_argument("--model", default=None, help="Model override")
+    parser.add_argument(
+        "--service-tier",
+        default=None,
+        help="OpenAI service tier override (for example: priority, flex, auto)",
+    )
     parser.add_argument("--save", default=None, help="Save full report to file")
     parser.add_argument("--quiet", action="store_true", help="Suppress progress output")
     parser.add_argument(
@@ -94,6 +99,8 @@ def main() -> None:
         ai_kwargs["provider"] = provider_map[args.provider]
     if args.model:
         ai_kwargs["model"] = args.model
+    if args.service_tier:
+        ai_kwargs["service_tier"] = args.service_tier
 
     # Run the analysis
     from settle_process import analyze_init_board

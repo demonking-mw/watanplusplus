@@ -24,6 +24,24 @@ from typing import Optional
 from .config import AIProvider, DEFAULT_PROVIDER, get_api_key, get_default_model
 
 
+def _is_gpt5_family(model: str) -> bool:
+    return model.startswith("gpt-5")
+
+
+def _openai_request_kwargs(model: str, temperature: float, max_tokens: int) -> dict:
+    """Use request parameters compatible with the selected OpenAI model."""
+    kwargs = {}
+    if _is_gpt5_family(model):
+        kwargs["max_completion_tokens"] = max_tokens
+        if temperature == 1:
+            kwargs["temperature"] = temperature
+        return kwargs
+
+    kwargs["max_tokens"] = max_tokens
+    kwargs["temperature"] = temperature
+    return kwargs
+
+
 # ---------------------------------------------------------------------------
 # Provider-specific dispatch (sync)
 # ---------------------------------------------------------------------------
@@ -36,6 +54,7 @@ def _query_openai(
     system: Optional[str],
     temperature: float,
     max_tokens: int,
+    service_tier: Optional[str],
 ) -> str:
     from openai import OpenAI
 
@@ -48,8 +67,8 @@ def _query_openai(
     resp = client.chat.completions.create(
         model=model,
         messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
+        service_tier=service_tier,
+        **_openai_request_kwargs(model, temperature, max_tokens),
     )
     return resp.choices[0].message.content
 
@@ -61,8 +80,11 @@ def _query_anthropic(
     system: Optional[str],
     temperature: float,
     max_tokens: int,
+    service_tier: Optional[str],
 ) -> str:
     from anthropic import Anthropic
+
+    del service_tier
 
     client = Anthropic(api_key=api_key)
     kwargs: dict = dict(
@@ -85,8 +107,11 @@ def _query_google(
     system: Optional[str],
     temperature: float,
     max_tokens: int,
+    service_tier: Optional[str],
 ) -> str:
     import requests
+
+    del service_tier
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     body: dict = {
@@ -117,6 +142,7 @@ async def _query_openai_async(
     system: Optional[str],
     temperature: float,
     max_tokens: int,
+    service_tier: Optional[str],
 ) -> str:
     from openai import AsyncOpenAI
 
@@ -129,8 +155,8 @@ async def _query_openai_async(
     resp = await client.chat.completions.create(
         model=model,
         messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
+        service_tier=service_tier,
+        **_openai_request_kwargs(model, temperature, max_tokens),
     )
     return resp.choices[0].message.content
 
@@ -142,8 +168,11 @@ async def _query_anthropic_async(
     system: Optional[str],
     temperature: float,
     max_tokens: int,
+    service_tier: Optional[str],
 ) -> str:
     from anthropic import AsyncAnthropic
+
+    del service_tier
 
     client = AsyncAnthropic(api_key=api_key)
     kwargs: dict = dict(
@@ -166,8 +195,11 @@ async def _query_google_async(
     system: Optional[str],
     temperature: float,
     max_tokens: int,
+    service_tier: Optional[str],
 ) -> str:
     import httpx
+
+    del service_tier
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     body: dict = {
@@ -217,6 +249,7 @@ def query_ai(
     system: Optional[str] = None,
     temperature: float = 0.7,
     max_tokens: int = 4096,
+    service_tier: Optional[str] = None,
     debug: bool = False,
 ) -> str:
     """Send *prompt* to an AI provider and return the text response (sync).
@@ -228,6 +261,7 @@ def query_ai(
         system:      Optional system prompt / instruction.
         temperature: Sampling temperature (0 = deterministic).
         max_tokens:  Response length cap.
+        service_tier: Optional OpenAI service tier override.
         debug:       If True, print the prompt and response to terminal.
 
     Returns:
@@ -248,7 +282,15 @@ def query_ai(
     if dispatch_fn is None:
         raise ValueError(f"No sync dispatch registered for provider: {provider}")
 
-    response = dispatch_fn(prompt, model, api_key, system, temperature, max_tokens)
+    response = dispatch_fn(
+        prompt,
+        model,
+        api_key,
+        system,
+        temperature,
+        max_tokens,
+        service_tier,
+    )
 
     if debug:
         print("\n" + "=" * 80)
@@ -268,6 +310,7 @@ async def query_ai_async(
     system: Optional[str] = None,
     temperature: float = 0.7,
     max_tokens: int = 4096,
+    service_tier: Optional[str] = None,
     debug: bool = False,
 ) -> str:
     """Send *prompt* to an AI provider and return the text response (async).
@@ -290,7 +333,13 @@ async def query_ai_async(
         raise ValueError(f"No async dispatch registered for provider: {provider}")
 
     response = await dispatch_fn(
-        prompt, model, api_key, system, temperature, max_tokens
+        prompt,
+        model,
+        api_key,
+        system,
+        temperature,
+        max_tokens,
+        service_tier,
     )
 
     if debug:
