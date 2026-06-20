@@ -1,8 +1,8 @@
-path: /Users/jocex/Projects/watan/dataset # <-- CHANGE THIS to your local absolute dataset path
-
+# catan_vision/data.yaml
+path: C:/Users/micro/OneDrive/Documents/watanplusplus/catan_vision/dataset
 train: train/images
-val: valid/images
-test: test/images
+val:   valid/images
+test:  test/images
 
 nc: 38
 
