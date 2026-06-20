@@ -1,25 +1,28 @@
-"""Catan web app server (scaffold).
+"""Catan web app server.
 
-Isolated FastAPI app. Serves the thin client and exposes a temporary WebSocket
-echo endpoint so end to end connectivity can be verified before any game logic
-exists. No game rules live here yet. The echo handler is replaced by the real
-game protocol in a later phase.
+Serves the thin client and the image assets, exposes the asset manifest, and
+provides a temporary WebSocket echo endpoint that the real game protocol
+replaces in a later phase.
 
 Run from the repository root:
-    uvicorn catan_web.server:app --host 0.0.0.0 --port 8000 --reload
+    uvicorn catan_web.server:app --host 127.0.0.1 --port 8000 --reload
 """
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from catan_web import assets_manifest
+
 WEB_DIR = Path(__file__).parent / "web"
+ASSETS_DIR = Path(__file__).parent / "assets" / "imgs"
 
-app = FastAPI(title="Catan Web (scaffold)")
+app = FastAPI(title="Catan Web")
 
-# Serve static assets (js, css, images) from the web folder.
+# Serve the thin client files and the game image assets as static content.
 app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")
+app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 
 
 @app.get("/")
@@ -34,14 +37,15 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/manifest.json")
+def manifest() -> JSONResponse:
+    """Asset manifest the frontend uses to locate images."""
+    return JSONResponse(assets_manifest.manifest())
+
+
 @app.websocket("/ws")
 async def ws_echo(websocket: WebSocket) -> None:
-    """Temporary echo endpoint.
-
-    Accepts a connection and echoes back any text message. This will be
-    replaced by the real game protocol (join, start, action, state, error)
-    in the networking phase.
-    """
+    """Temporary echo endpoint, replaced by the game protocol later."""
     await websocket.accept()
     try:
         while True:
