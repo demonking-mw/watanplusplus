@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Catan Web (scaffold)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    #log { border: 1px solid #ccc; padding: 0.75rem; height: 220px; overflow-y: auto; white-space: pre-wrap; background: #fafafa; }
+    .row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+    input { flex: 1; padding: 0.5rem; }
+    button { padding: 0.5rem 1rem; }
+    .status { font-size: 0.9rem; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Catan Web (scaffold)</h1>
+  <p class="status" id="status">Connecting...</p>
+  <div id="log"></div>
+  <div class="row">
+    <input id="msg" type="text" placeholder="Type a message and press Send" />
+    <button id="send">Send</button>
+  </div>
+  <script>
+    const logEl = document.getElementById("log");
+    const statusEl = document.getElementById("status");
+    const msgEl = document.getElementById("msg");
+    const sendEl = document.getElementById("send");
+
+    function log(line) {
+      logEl.textContent += line + "\n";
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    const ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.onopen = () => { statusEl.textContent = "Connected"; };
+    ws.onclose = () => { statusEl.textContent = "Disconnected"; };
+    ws.onerror = () => { statusEl.textContent = "Connection error"; };
+    ws.onmessage = (event) => { log(event.data); };
+
+    function send() {
+      const text = msgEl.value.trim();
+      if (text.length === 0) return;
+      ws.send(text);
+      log("you: " + text);
+      msgEl.value = "";
+    }
+
+    sendEl.addEventListener("click", send);
+    msgEl.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  </script>
+</body>
+</html>
