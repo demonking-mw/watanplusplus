@@ -56,6 +56,7 @@
     text-align:center; padding:.6rem; border-radius:8px; }
 
   .hex { stroke:#0006; stroke-width:.03; }
+  .hexedge { stroke:#0007; stroke-width:.04; }
   .hex.robber-target { stroke:var(--target); stroke-width:.08; cursor:pointer; }
   .token { fill:#f3ead2; stroke:#0007; stroke-width:.02; }
   .tokentext { font-size:.42px; text-anchor:middle; dominant-baseline:central;
@@ -70,6 +71,16 @@
   .node.target { fill:var(--target); cursor:pointer; }
   .build { stroke:#0008; stroke-width:.02; }
   .portlabel { font-size:.26px; text-anchor:middle; fill:#cdd6e6; }
+
+  .card-cell { position:relative; display:inline-flex; align-items:center;
+    justify-content:center; }
+  .cardimg { height:54px; width:auto; border-radius:5px; display:block;
+    box-shadow:0 1px 3px #0007; }
+  .card-cell .count { position:absolute; bottom:-4px; right:-4px;
+    background:#1d2330; color:var(--text); border:1px solid var(--line);
+    border-radius:10px; font-size:.72rem; padding:0 .35rem; font-weight:700; }
+  .devimg { height:64px; width:auto; border-radius:5px;
+    box-shadow:0 1px 3px #0007; }
 </style>
 </head>
 <body>
@@ -116,6 +127,10 @@
       <div class="chips" id="hand"></div>
     </div>
     <div>
+      <div class="muted">Development cards</div>
+      <div class="chips" id="devcards"></div>
+    </div>
+    <div>
       <div class="muted">Players</div>
       <div class="players" id="players"></div>
     </div>
@@ -135,7 +150,7 @@ const TERR = {forest:"var(--forest)",hill:"var(--hill)",pasture:"var(--pasture)"
 const RED_TOKENS = new Set([6,8]);
 
 let ws=null, geom=null, view=null, legal=[], me=null, room=null, host=0, started=false;
-let lobbyPlayers=[], robberPick=null;
+let lobbyPlayers=[], robberPick=null, assets=null;
 
 const $ = id => document.getElementById(id);
 function log(s){ const el=$("log"); el.textContent += s+"\n"; el.scrollTop=el.scrollHeight; }
@@ -166,7 +181,7 @@ function handle(m){
     lobbyPlayers=m.players; host=m.host; started=m.started; renderLobby();
   } else if(m.type==="state"){
     view=m.view; renderAll();
-  } else if(m.type==="legal"){
+  } else if(m.type==="legal_actions"){
     legal=m.actions; renderAll();
   } else if(m.type==="error"){
     log("Error: "+m.message);
@@ -211,23 +226,40 @@ function renderBoard(idx){
   svg.setAttribute("viewBox",
     `${b.minX-pad} ${b.minY-pad} ${(b.maxX-b.minX)+2*pad} ${(b.maxY-b.minY)+2*pad}`);
   const bld = view.buildings;
-  let s="";
+  let s="", defs="";
 
   for(const h of geom.hexes){
     const bh = view.board.hexes.find(x=>x.id===h.id);
-    const fill = bh?TERR[bh.terrain]:"#333";
     const pts = h.corners.map(c=>c.join(",")).join(" ");
-    const tgt = idx.robber[h.id]?" robber-target":"";
-    const rb = idx.robber[h.id]?` data-robber="${h.id}"`:"";
-    s+=`<polygon class="hex${tgt}" points="${pts}" fill="${fill}"${rb}></polygon>`;
+    const xs=h.corners.map(c=>c[0]), ys=h.corners.map(c=>c[1]);
+    const x0=Math.min(...xs), y0=Math.min(...ys);
+    const w=Math.max(...xs)-x0, hgt=Math.max(...ys)-y0;
+    const art = (assets && bh) ? assets.terrain[bh.terrain] : null;
+    if(art){
+      defs+=`<clipPath id="hc${h.id}"><polygon points="${pts}"></polygon></clipPath>`;
+      s+=`<image href="${art}" x="${x0}" y="${y0}" width="${w}" height="${hgt}" `
+        +`preserveAspectRatio="none" clip-path="url(#hc${h.id})"></image>`;
+      s+=`<polygon class="hexedge" points="${pts}" fill="none"></polygon>`;
+    } else {
+      const fill = bh?TERR[bh.terrain]:"#333";
+      s+=`<polygon class="hex" points="${pts}" fill="${fill}"></polygon>`;
+    }
+    if(idx.robber[h.id])
+      s+=`<polygon class="hex robber-target" points="${pts}" fill="transparent" data-robber="${h.id}"></polygon>`;
     if(bh && bh.token){
       const red = RED_TOKENS.has(bh.token)?" red":"";
       s+=`<circle class="token" cx="${h.cx}" cy="${h.cy}" r="0.33"></circle>`;
       s+=`<text class="tokentext${red}" x="${h.cx}" y="${h.cy}">${bh.token}</text>`;
     }
-    if(view.robber_hex===h.id)
-      s+=`<circle class="robber" cx="${h.cx}" cy="${h.cy}" r="0.22"></circle>`;
+    if(view.robber_hex===h.id){
+      if(assets && assets.robber)
+        s+=`<image href="${assets.robber}" x="${h.cx-0.22}" y="${h.cy-0.28}" `
+          +`width="0.44" height="0.56" preserveAspectRatio="xMidYMid meet"></image>`;
+      else
+        s+=`<circle class="robber" cx="${h.cx}" cy="${h.cy}" r="0.22"></circle>`;
+    }
   }
+  s = `<defs>${defs}</defs>` + s;
 
   for(const e of geom.edges){
     const owner = bld.roads[e.id];
@@ -275,8 +307,16 @@ function renderAll(){
   $("substatus").textContent =
     `Phase ${view.phase} | turn ${view.turn}` + (view.dice?` | rolled ${view.dice[0]+view.dice[1]}`:"");
 
-  $("hand").innerHTML = RES.map(r=>`<span class="chip">${r}: ${view.your_resources[r]}</span>`).join("");
-  $("bank").innerHTML = RES.map(r=>`<span class="chip">${r}: ${view.bank[r]}</span>`).join("");
+  $("hand").innerHTML = resCards(view.your_resources);
+  $("bank").innerHTML = resCards(view.bank);
+  const dev = view.your_dev_cards || [];
+  $("devcards").innerHTML = dev.length
+    ? dev.map(d=>{
+        const img = assets && assets.dev_cards[d];
+        return img ? `<img class="devimg" src="${img}" alt="${d}" title="${d}">`
+                   : `<span class="chip">${d}</span>`;
+      }).join("")
+    : `<span class="muted">none</span>`;
   $("players").innerHTML = view.players.map(p=>{
     const turn = (p.seat===view.current_player && view.phase!=="setup")?" turn":"";
     return `<div class="pl${turn}"><span class="swatch" style="background:${PCOLOR[p.seat]}"></span>`
@@ -344,6 +384,15 @@ function btn(label,cls,fn){ const b=document.createElement("button");
   b.textContent=label; if(cls) b.className=cls; b.onclick=fn; return b; }
 function hint(t){ const d=document.createElement("div"); d.className="muted"; d.textContent=t; return d; }
 
+function resCards(counts){
+  return RES.map(r=>{
+    const img = assets && assets.resource_cards[r];
+    const inner = img ? `<img class="cardimg" src="${img}" alt="${r}" title="${r}">`
+                      : `<span class="chip">${r}</span>`;
+    return `<div class="card-cell">${inner}<span class="count">${counts[r]}</span></div>`;
+  }).join("");
+}
+
 // board click delegation
 $("board").addEventListener("click", e=>{
   const act=e.target.closest("[data-act]");
@@ -378,8 +427,12 @@ $("leaveBtn").onclick=()=>{ localStorage.removeItem("catan"); location.reload();
   }
 })();
 
-// load geometry up front
-fetch("/geometry.json").then(r=>r.json()).then(g=>{geom=g;}).catch(()=>log("Failed to load board geometry."));
+// load geometry and asset manifest up front
+Promise.all([
+  fetch("/geometry.json").then(r=>r.json()),
+  fetch("/manifest.json").then(r=>r.json()),
+]).then(([g,m])=>{ geom=g; assets=m; if(view) renderAll(); })
+  .catch(()=>log("Failed to load board assets."));
 </script>
 </body>
 </html>
