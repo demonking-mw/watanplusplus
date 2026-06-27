@@ -1,53 +1,385 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Catan Web (scaffold)</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
-    #log { border: 1px solid #ccc; padding: 0.75rem; height: 220px; overflow-y: auto; white-space: pre-wrap; background: #fafafa; }
-    .row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
-    input { flex: 1; padding: 0.5rem; }
-    button { padding: 0.5rem 1rem; }
-    .status { font-size: 0.9rem; color: #555; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Catan Web</title>
+<style>
+  :root {
+    --bg: #1d2330; --panel: #262d3d; --line: #3a4254; --text: #e7ecf3;
+    --muted: #9aa6bd; --accent: #ffd166; --target: #36d399;
+    --forest:#2e7d32; --hill:#c1632d; --pasture:#7cb342;
+    --field:#f4c430; --mountain:#9e9e9e; --desert:#e0c9a6;
+    --p0:#e23b3b; --p1:#2f7ee0; --p2:#f2f2f2; --p3:#f08a24;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg);
+    color:var(--text); }
+  h1 { font-size:1.1rem; margin:0; }
+  button { background:var(--line); color:var(--text); border:0;
+    padding:.5rem .8rem; border-radius:6px; cursor:pointer; font-size:.9rem; }
+  button:hover { filter:brightness(1.15); }
+  button.primary { background:var(--accent); color:#1d2330; font-weight:600; }
+  input, select { background:var(--bg); color:var(--text);
+    border:1px solid var(--line); border-radius:6px; padding:.5rem; }
+  .hidden { display:none !important; }
+
+  #lobby { max-width:420px; margin:4rem auto; padding:0 1rem;
+    display:flex; flex-direction:column; gap:1rem; }
+  .card { background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; padding:1rem; display:flex; flex-direction:column; gap:.6rem; }
+  .row { display:flex; gap:.5rem; align-items:center; }
+  .lobby-players { display:flex; flex-direction:column; gap:.3rem; }
+
+  #game { display:grid; grid-template-columns: 1fr 340px; height:100vh; }
+  #boardWrap { padding:.5rem; display:flex; align-items:center;
+    justify-content:center; min-width:0; }
+  svg { width:100%; height:100%; max-height:100vh; }
+  #side { background:var(--panel); border-left:1px solid var(--line);
+    padding:.8rem; overflow-y:auto; display:flex; flex-direction:column; gap:.7rem; }
+
+  .status { font-weight:600; }
+  .muted { color:var(--muted); font-size:.85rem; }
+  .players { display:flex; flex-direction:column; gap:.35rem; }
+  .pl { display:flex; align-items:center; gap:.5rem; padding:.35rem .5rem;
+    border:1px solid var(--line); border-radius:6px; font-size:.85rem; }
+  .pl.turn { outline:2px solid var(--accent); }
+  .swatch { width:14px; height:14px; border-radius:3px; border:1px solid #0006; }
+  .chips { display:flex; flex-wrap:wrap; gap:.3rem; }
+  .chip { background:var(--bg); border:1px solid var(--line);
+    border-radius:12px; padding:.15rem .5rem; font-size:.8rem; }
+  #controls { display:flex; flex-direction:column; gap:.5rem; }
+  #log { background:var(--bg); border:1px solid var(--line); border-radius:6px;
+    padding:.5rem; height:130px; overflow-y:auto; font-size:.78rem;
+    white-space:pre-wrap; color:var(--muted); }
+  #banner { background:var(--accent); color:#1d2330; font-weight:700;
+    text-align:center; padding:.6rem; border-radius:8px; }
+
+  .hex { stroke:#0006; stroke-width:.03; }
+  .hex.robber-target { stroke:var(--target); stroke-width:.08; cursor:pointer; }
+  .token { fill:#f3ead2; stroke:#0007; stroke-width:.02; }
+  .tokentext { font-size:.42px; text-anchor:middle; dominant-baseline:central;
+    font-weight:700; fill:#222; }
+  .tokentext.red { fill:#c0392b; }
+  .robber { fill:#15171c; stroke:#000; stroke-width:.03; }
+  .road { stroke:#5b6373; stroke-width:.06; stroke-linecap:round; }
+  .road.owned { stroke-width:.14; }
+  .road.target { stroke:var(--target); stroke-width:.12; cursor:pointer;
+    stroke-dasharray:.12 .1; }
+  .node { fill:#2b3142; stroke:#4a5266; stroke-width:.02; }
+  .node.target { fill:var(--target); cursor:pointer; }
+  .build { stroke:#0008; stroke-width:.02; }
+  .portlabel { font-size:.26px; text-anchor:middle; fill:#cdd6e6; }
+</style>
 </head>
 <body>
-  <h1>Catan Web (scaffold)</h1>
-  <p class="status" id="status">Connecting...</p>
-  <div id="log"></div>
-  <div class="row">
-    <input id="msg" type="text" placeholder="Type a message and press Send" />
-    <button id="send">Send</button>
+
+<div id="lobby">
+  <div class="card">
+    <h1>Catan Web</h1>
+    <div class="muted">Self hosted 4 player Catan.</div>
   </div>
-  <script>
-    const logEl = document.getElementById("log");
-    const statusEl = document.getElementById("status");
-    const msgEl = document.getElementById("msg");
-    const sendEl = document.getElementById("send");
+  <div class="card">
+    <label>Your name</label>
+    <input id="name" placeholder="Name" />
+    <button class="primary" id="createBtn">Create a game</button>
+  </div>
+  <div class="card">
+    <label>Join a game</label>
+    <div class="row">
+      <input id="roomCode" placeholder="Room code" style="flex:1; text-transform:uppercase;" />
+      <button id="joinBtn">Join</button>
+    </div>
+  </div>
+  <div class="card hidden" id="reconnectCard">
+    <div class="muted">Reconnect to your last game</div>
+    <button id="reconnectBtn"></button>
+  </div>
+  <div class="muted" id="lobbyMsg"></div>
+</div>
 
-    function log(line) {
-      logEl.textContent += line + "\n";
-      logEl.scrollTop = logEl.scrollHeight;
+<div id="game" class="hidden">
+  <div id="boardWrap"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <div id="side">
+    <div class="row" style="justify-content:space-between;">
+      <h1 id="roomTitle"></h1>
+      <button id="leaveBtn">Leave</button>
+    </div>
+    <div id="banner" class="hidden"></div>
+    <div class="status" id="status"></div>
+    <div class="muted" id="substatus"></div>
+    <div id="lobbyList" class="lobby-players"></div>
+    <button class="primary hidden" id="startBtn">Start game</button>
+    <div id="controls"></div>
+    <div>
+      <div class="muted">Your hand</div>
+      <div class="chips" id="hand"></div>
+    </div>
+    <div>
+      <div class="muted">Players</div>
+      <div class="players" id="players"></div>
+    </div>
+    <div>
+      <div class="muted">Bank</div>
+      <div class="chips" id="bank"></div>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+const RES = ["lumber","brick","wool","grain","ore"];
+const PCOLOR = ["var(--p0)","var(--p1)","var(--p2)","var(--p3)"];
+const TERR = {forest:"var(--forest)",hill:"var(--hill)",pasture:"var(--pasture)",
+  field:"var(--field)",mountain:"var(--mountain)",desert:"var(--desert)"};
+const RED_TOKENS = new Set([6,8]);
+
+let ws=null, geom=null, view=null, legal=[], me=null, room=null, host=0, started=false;
+let lobbyPlayers=[], robberPick=null;
+
+const $ = id => document.getElementById(id);
+function log(s){ const el=$("log"); el.textContent += s+"\n"; el.scrollTop=el.scrollHeight; }
+function save(){ localStorage.setItem("catan", JSON.stringify({room, token, name:$("name").value})); }
+let token=null;
+
+function wsUrl(){
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${location.host}/ws`;
+}
+function send(obj){ if(ws && ws.readyState===1) ws.send(JSON.stringify(obj)); }
+
+function connect(then){
+  ws = new WebSocket(wsUrl());
+  ws.onopen = () => { if(then) then(); };
+  ws.onclose = () => log("Disconnected.");
+  ws.onerror = () => log("Connection error.");
+  ws.onmessage = e => handle(JSON.parse(e.data));
+}
+
+function handle(m){
+  if(m.type==="joined"){
+    me=m.seat; room=m.room; token=m.token; save();
+    $("lobby").classList.add("hidden"); $("game").classList.remove("hidden");
+    $("roomTitle").textContent = "Room "+room;
+    log("Joined room "+room+" as seat "+me);
+  } else if(m.type==="lobby"){
+    lobbyPlayers=m.players; host=m.host; started=m.started; renderLobby();
+  } else if(m.type==="state"){
+    view=m.view; renderAll();
+  } else if(m.type==="legal"){
+    legal=m.actions; renderAll();
+  } else if(m.type==="error"){
+    log("Error: "+m.message);
+  } else if(m.type==="game_over"){
+    const b=$("banner"); b.classList.remove("hidden");
+    b.textContent = (m.winner===me?"You win!":("Seat "+m.winner+" wins!"))
+      +" VPs "+m.final_vps.join(" / ");
+  }
+}
+
+function renderLobby(){
+  const list=$("lobbyList");
+  if(started){ list.innerHTML=""; $("startBtn").classList.add("hidden"); return; }
+  list.innerHTML = lobbyPlayers.map(p =>
+    `<div class="pl"><span class="swatch" style="background:${PCOLOR[p.seat]}"></span>`
+    +`${p.name}${p.seat===host?" (host)":""}${p.connected?"":" (away)"}</div>`).join("");
+  const canStart = (me===host && lobbyPlayers.length===4);
+  $("startBtn").classList.toggle("hidden", !canStart);
+}
+
+// ---- legal action indexing ----
+function indexLegal(){
+  const idx={roll:false,end:false,nodes:{},edges:{},robber:{},discards:[],trades:{}};
+  for(const a of legal){
+    if(a.type==="roll") idx.roll=true;
+    else if(a.type==="end_turn") idx.end=true;
+    else if(a.type==="setup_settlement"||a.type==="build_settlement"||a.type==="build_city")
+      idx.nodes[a.node]=a;
+    else if(a.type==="setup_road"||a.type==="build_road") idx.edges[a.edge]=a;
+    else if(a.type==="move_robber"){ (idx.robber[a.hex_id]=idx.robber[a.hex_id]||[]).push(a); }
+    else if(a.type==="discard") idx.discards.push(a.resource);
+    else if(a.type==="bank_trade"){ (idx.trades[a.give]=idx.trades[a.give]||new Set()).add(a.get); }
+  }
+  return idx;
+}
+
+// ---- board ----
+function renderBoard(idx){
+  const svg=$("board");
+  if(!geom||!view){ svg.innerHTML=""; return; }
+  const b=geom.bounds, pad=0.9;
+  svg.setAttribute("viewBox",
+    `${b.minX-pad} ${b.minY-pad} ${(b.maxX-b.minX)+2*pad} ${(b.maxY-b.minY)+2*pad}`);
+  const bld = view.buildings;
+  let s="";
+
+  for(const h of geom.hexes){
+    const bh = view.board.hexes.find(x=>x.id===h.id);
+    const fill = bh?TERR[bh.terrain]:"#333";
+    const pts = h.corners.map(c=>c.join(",")).join(" ");
+    const tgt = idx.robber[h.id]?" robber-target":"";
+    const rb = idx.robber[h.id]?` data-robber="${h.id}"`:"";
+    s+=`<polygon class="hex${tgt}" points="${pts}" fill="${fill}"${rb}></polygon>`;
+    if(bh && bh.token){
+      const red = RED_TOKENS.has(bh.token)?" red":"";
+      s+=`<circle class="token" cx="${h.cx}" cy="${h.cy}" r="0.33"></circle>`;
+      s+=`<text class="tokentext${red}" x="${h.cx}" y="${h.cy}">${bh.token}</text>`;
     }
+    if(view.robber_hex===h.id)
+      s+=`<circle class="robber" cx="${h.cx}" cy="${h.cy}" r="0.22"></circle>`;
+  }
 
-    const ws = new WebSocket(`ws://${location.host}/ws`);
-    ws.onopen = () => { statusEl.textContent = "Connected"; };
-    ws.onclose = () => { statusEl.textContent = "Disconnected"; };
-    ws.onerror = () => { statusEl.textContent = "Connection error"; };
-    ws.onmessage = (event) => { log(event.data); };
+  for(const e of geom.edges){
+    const owner = bld.roads[e.id];
+    let cls="road", style="";
+    if(owner!==undefined){ cls+=" owned"; style=`stroke:${PCOLOR[owner]}`; }
+    let data="";
+    if(idx.edges[e.id]!==undefined){ cls+=" target"; data=` data-act='${JSON.stringify(idx.edges[e.id])}'`; }
+    s+=`<line class="${cls}" style="${style}" x1="${e.x1}" y1="${e.y1}" x2="${e.x2}" y2="${e.y2}"${data}></line>`;
+  }
 
-    function send() {
-      const text = msgEl.value.trim();
-      if (text.length === 0) return;
-      ws.send(text);
-      log("you: " + text);
-      msgEl.value = "";
+  // ports
+  for(const p of view.board.ports){
+    const a=geom.nodes.find(n=>n.id===p.nodes[0]);
+    const c=geom.nodes.find(n=>n.id===p.nodes[1]);
+    if(!a||!c) continue;
+    const mx=(a.x+c.x)/2, my=(a.y+c.y)/2;
+    const label = p.ratio===3?"3:1":("2:1 "+p.resource);
+    s+=`<text class="portlabel" x="${mx}" y="${my}">${label}</text>`;
+  }
+
+  for(const n of geom.nodes){
+    const set = bld.settlements[n.id], city = bld.cities[n.id];
+    if(city!==undefined){
+      s+=`<rect class="build" x="${n.x-0.16}" y="${n.y-0.16}" width="0.32" height="0.32" fill="${PCOLOR[city]}"></rect>`;
+    } else if(set!==undefined){
+      s+=`<circle class="build" cx="${n.x}" cy="${n.y}" r="0.16" fill="${PCOLOR[set]}"></circle>`;
+    } else {
+      const t = idx.nodes[n.id]!==undefined;
+      const data = t?` data-act='${JSON.stringify(idx.nodes[n.id])}'`:"";
+      s+=`<circle class="node${t?" target":""}" cx="${n.x}" cy="${n.y}" r="${t?0.15:0.08}"${data}></circle>`;
     }
+  }
+  svg.innerHTML=s;
+}
 
-    sendEl.addEventListener("click", send);
-    msgEl.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
-  </script>
+// ---- side panel and controls ----
+function renderAll(){
+  if(!view) return;
+  const idx=indexLegal();
+  renderBoard(idx);
+
+  const yours = legal.length>0;
+  $("status").textContent = view.winner!==null ? "Game over"
+    : (yours ? "Your move" : "Waiting for another player");
+  $("substatus").textContent =
+    `Phase ${view.phase} | turn ${view.turn}` + (view.dice?` | rolled ${view.dice[0]+view.dice[1]}`:"");
+
+  $("hand").innerHTML = RES.map(r=>`<span class="chip">${r}: ${view.your_resources[r]}</span>`).join("");
+  $("bank").innerHTML = RES.map(r=>`<span class="chip">${r}: ${view.bank[r]}</span>`).join("");
+  $("players").innerHTML = view.players.map(p=>{
+    const turn = (p.seat===view.current_player && view.phase!=="setup")?" turn":"";
+    return `<div class="pl${turn}"><span class="swatch" style="background:${PCOLOR[p.seat]}"></span>`
+      +`<b>${p.name}</b>${p.seat===me?" (you)":""} - VP ${p.vp}, cards ${p.resource_count}, `
+      +`knights ${p.knights}, roads ${p.road_segments}</div>`;
+  }).join("");
+
+  renderControls(idx);
+}
+
+function renderControls(idx){
+  const c=$("controls"); c.innerHTML="";
+  if(robberPick){ renderRobberPick(c); return; }
+  if(legal.length===0){ return; }
+
+  if(idx.roll) c.appendChild(btn("Roll dice","primary",()=>send({type:"action",action:{type:"roll"}})));
+
+  if(idx.discards.length){
+    const owe = view.pending_discards[String(me)]||0;
+    const d=document.createElement("div");
+    d.innerHTML=`<div class="muted">Discard ${owe} card(s)</div>`;
+    const row=document.createElement("div"); row.className="row";
+    idx.discards.forEach(r=>row.appendChild(btn(r,"",()=>send({type:"action",action:{type:"discard",resource:r}}))));
+    d.appendChild(row); c.appendChild(d);
+  }
+
+  if(Object.keys(idx.robber).length)
+    c.appendChild(hint("Click a highlighted hex to move the robber."));
+
+  const buildable = Object.keys(idx.nodes).length||Object.keys(idx.edges).length;
+  if(buildable) c.appendChild(hint("Click a highlighted spot to build."));
+
+  if(Object.keys(idx.trades).length) c.appendChild(tradeWidget(idx.trades));
+
+  if(idx.end) c.appendChild(btn("End turn","",()=>send({type:"action",action:{type:"end_turn"}})));
+}
+
+function tradeWidget(trades){
+  const wrap=document.createElement("div"); wrap.className="card"; wrap.style.gap=".4rem";
+  wrap.innerHTML=`<div class="muted">Bank / port trade</div>`;
+  const gives=Object.keys(trades);
+  const gSel=document.createElement("select");
+  gives.forEach(g=>gSel.append(new Option("give "+g,g)));
+  const tSel=document.createElement("select");
+  function fillGets(){ tSel.innerHTML=""; [...trades[gSel.value]].forEach(t=>tSel.append(new Option("get "+t,t))); }
+  gSel.onchange=fillGets; fillGets();
+  const row=document.createElement("div"); row.className="row";
+  row.append(gSel,tSel);
+  wrap.append(row, btn("Trade","",()=>send({type:"action",action:{type:"bank_trade",give:gSel.value,get:tSel.value}})));
+  return wrap;
+}
+
+function renderRobberPick(c){
+  const opts=robberPick.opts;
+  const d=document.createElement("div"); d.className="card"; d.style.gap=".4rem";
+  d.innerHTML=`<div class="muted">Steal from which player?</div>`;
+  opts.forEach(a=>{
+    const label=a.victim===null?"No one":("Seat "+a.victim);
+    d.appendChild(btn(label,"",()=>{ robberPick=null; send({type:"action",action:a}); }));
+  });
+  c.appendChild(d);
+}
+
+function btn(label,cls,fn){ const b=document.createElement("button");
+  b.textContent=label; if(cls) b.className=cls; b.onclick=fn; return b; }
+function hint(t){ const d=document.createElement("div"); d.className="muted"; d.textContent=t; return d; }
+
+// board click delegation
+$("board").addEventListener("click", e=>{
+  const act=e.target.closest("[data-act]");
+  if(act){ send({type:"action",action:JSON.parse(act.dataset.act)}); return; }
+  const rob=e.target.closest("[data-robber]");
+  if(rob){
+    const idx=indexLegal();
+    const opts=idx.robber[Number(rob.dataset.robber)]||[];
+    if(opts.length===1) send({type:"action",action:opts[0]});
+    else if(opts.length>1){ robberPick={opts}; renderControls(idx); }
+  }
+});
+
+// lobby actions
+$("createBtn").onclick=()=>{ const n=$("name").value.trim()||"Player";
+  connect(()=>send({type:"create",name:n})); };
+$("joinBtn").onclick=()=>{ const n=$("name").value.trim()||"Player";
+  const r=$("roomCode").value.trim().toUpperCase(); if(!r) return;
+  connect(()=>send({type:"join",room:r,name:n})); };
+$("startBtn").onclick=()=>send({type:"start"});
+$("leaveBtn").onclick=()=>{ localStorage.removeItem("catan"); location.reload(); };
+
+// reconnect
+(function(){
+  const saved=JSON.parse(localStorage.getItem("catan")||"null");
+  if(saved && saved.room && saved.token){
+    $("reconnectCard").classList.remove("hidden");
+    $("name").value=saved.name||"";
+    $("reconnectBtn").textContent="Reconnect to "+saved.room;
+    $("reconnectBtn").onclick=()=>{ token=saved.token;
+      connect(()=>send({type:"join",room:saved.room,name:saved.name||"Player",token:saved.token})); };
+  }
+})();
+
+// load geometry up front
+fetch("/geometry.json").then(r=>r.json()).then(g=>{geom=g;}).catch(()=>log("Failed to load board geometry."));
+</script>
 </body>
 </html>
