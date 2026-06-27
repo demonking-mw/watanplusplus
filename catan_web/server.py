@@ -1,8 +1,8 @@
 """Catan web app server.
 
-Serves the thin client and image assets, exposes the asset manifest, and runs
-the authoritative WebSocket game protocol. The endpoint is thin glue over the
-RoomManager, which holds all game logic.
+Serves the thin client and image assets, exposes the asset manifest and board
+geometry, and runs the authoritative WebSocket game protocol. The endpoint is
+thin glue over the RoomManager, which holds all game logic.
 """
 from pathlib import Path
 
@@ -15,6 +15,7 @@ from catan_web.engine.actions import IllegalAction
 from catan_web.engine.board import Resource
 from catan_web.engine.legal import Action, ActionType, victory_points
 from catan_web.export.logger import log_action, write_meta
+from catan_web.geometry import board_geometry
 from catan_web.net import protocol as P
 from catan_web.net.redact import legal_for, view_for_player
 from catan_web.net.rooms import GameError, RoomManager
@@ -42,6 +43,11 @@ def health() -> dict:
 @app.get("/manifest.json")
 def manifest() -> JSONResponse:
     return JSONResponse(assets_manifest.manifest())
+
+
+@app.get("/geometry.json")
+def geometry() -> JSONResponse:
+    return JSONResponse(board_geometry())
 
 
 def _parse_action(d: dict) -> Action:
