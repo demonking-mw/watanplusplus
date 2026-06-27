@@ -151,6 +151,7 @@ const RED_TOKENS = new Set([6,8]);
 
 let ws=null, geom=null, view=null, legal=[], me=null, room=null, host=0, started=false;
 let lobbyPlayers=[], robberPick=null, assets=null;
+let lobbyPlayers=[], robberPick=null;
 
 const $ = id => document.getElementById(id);
 function log(s){ const el=$("log"); el.textContent += s+"\n"; el.scrollTop=el.scrollHeight; }
@@ -182,6 +183,7 @@ function handle(m){
   } else if(m.type==="state"){
     view=m.view; renderAll();
   } else if(m.type==="legal_actions"){
+  } else if(m.type==="legal"){
     legal=m.actions; renderAll();
   } else if(m.type==="error"){
     log("Error: "+m.message);
@@ -246,20 +248,23 @@ function renderBoard(idx){
     }
     if(idx.robber[h.id])
       s+=`<polygon class="hex robber-target" points="${pts}" fill="transparent" data-robber="${h.id}"></polygon>`;
+  let s="";
+
+  for(const h of geom.hexes){
+    const bh = view.board.hexes.find(x=>x.id===h.id);
+    const fill = bh?TERR[bh.terrain]:"#333";
+    const pts = h.corners.map(c=>c.join(",")).join(" ");
+    const tgt = idx.robber[h.id]?" robber-target":"";
+    const rb = idx.robber[h.id]?` data-robber="${h.id}"`:"";
+    s+=`<polygon class="hex${tgt}" points="${pts}" fill="${fill}"${rb}></polygon>`;
     if(bh && bh.token){
       const red = RED_TOKENS.has(bh.token)?" red":"";
       s+=`<circle class="token" cx="${h.cx}" cy="${h.cy}" r="0.33"></circle>`;
       s+=`<text class="tokentext${red}" x="${h.cx}" y="${h.cy}">${bh.token}</text>`;
     }
-    if(view.robber_hex===h.id){
-      if(assets && assets.robber)
-        s+=`<image href="${assets.robber}" x="${h.cx-0.22}" y="${h.cy-0.28}" `
-          +`width="0.44" height="0.56" preserveAspectRatio="xMidYMid meet"></image>`;
-      else
-        s+=`<circle class="robber" cx="${h.cx}" cy="${h.cy}" r="0.22"></circle>`;
-    }
+    if(view.robber_hex===h.id)
+      s+=`<circle class="robber" cx="${h.cx}" cy="${h.cy}" r="0.22"></circle>`;
   }
-  s = `<defs>${defs}</defs>` + s;
 
   for(const e of geom.edges){
     const owner = bld.roads[e.id];
@@ -317,6 +322,8 @@ function renderAll(){
                    : `<span class="chip">${d}</span>`;
       }).join("")
     : `<span class="muted">none</span>`;
+  $("hand").innerHTML = RES.map(r=>`<span class="chip">${r}: ${view.your_resources[r]}</span>`).join("");
+  $("bank").innerHTML = RES.map(r=>`<span class="chip">${r}: ${view.bank[r]}</span>`).join("");
   $("players").innerHTML = view.players.map(p=>{
     const turn = (p.seat===view.current_player && view.phase!=="setup")?" turn":"";
     return `<div class="pl${turn}"><span class="swatch" style="background:${PCOLOR[p.seat]}"></span>`
@@ -433,6 +440,8 @@ Promise.all([
   fetch("/manifest.json").then(r=>r.json()),
 ]).then(([g,m])=>{ geom=g; assets=m; if(view) renderAll(); })
   .catch(()=>log("Failed to load board assets."));
+// load geometry up front
+fetch("/geometry.json").then(r=>r.json()).then(g=>{geom=g;}).catch(()=>log("Failed to load board geometry."));
 </script>
 </body>
 </html>
