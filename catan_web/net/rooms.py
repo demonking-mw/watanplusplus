@@ -42,6 +42,7 @@ class Room:
     game_id: str = ""
     seq: int = 0
     names: list = field(default_factory=list)
+    history: list = field(default_factory=list)
 
 
 class RoomManager:
@@ -111,6 +112,19 @@ class RoomManager:
         apply_action(room.state, seat, action, room.rng)
         room.seq += 1
         return room
+
+    def chat(self, code, seat, text):
+        room = self.rooms.get(code)
+        if room is None:
+            raise GameError("No such room")
+        if seat >= len(room.seats):
+            raise GameError("Invalid seat")
+        msg = text.strip()
+        if not msg:
+            raise GameError("Empty message")
+        if len(msg) > 200:
+            raise GameError("Message too long")
+        return room, seat, msg
 
     def disconnect(self, ws):
         info = self.conn.pop(ws, None)

@@ -3,9 +3,12 @@ from collections import Counter
 
 from catan_web.engine import coords
 from catan_web.engine.board import (
+    HIGH_TOKENS,
     NUMBER_TOKENS,
     Resource,
     Terrain,
+    _hex_neighbor_ids,
+    _tokens_valid,
     generate_board,
 )
 from catan_web.engine.rng import GameRandom
@@ -79,3 +82,19 @@ def test_board_is_reproducible_from_seed():
     assert [h.token for h in a.hexes] == [h.token for h in b.hexes]
     assert a.ports == b.ports
     assert a.robber_hex == b.robber_hex
+
+
+def test_no_adjacent_high_or_matching_tokens():
+    for seed in range(50):
+        board = _board(seed)
+        assert _tokens_valid(board.hexes)
+        by_id = {h.hex_id: h.token for h in board.hexes}
+        for h in board.hexes:
+            if h.token is None:
+                continue
+            for nid in _hex_neighbor_ids(h.hex_id):
+                other = by_id[nid]
+                if other is None:
+                    continue
+                assert not (h.token in HIGH_TOKENS and other in HIGH_TOKENS)
+                assert h.token != other

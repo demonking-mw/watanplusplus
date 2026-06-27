@@ -57,6 +57,9 @@ NUMBER_TOKENS: tuple[int, ...] = (
     2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12,
 )
 
+HIGH_TOKENS = frozenset({6, 8})
+_MAX_TOKEN_TRIES = 500
+
 
 @dataclass(frozen=True)
 class BoardHex:
@@ -128,6 +131,58 @@ def _port_definitions() -> list[tuple[Resource | None, int]]:
     ]
 
 
+def _hex_neighbor_ids(hex_id: int) -> list[int]:
+    """Return adjacent land hex IDs for a hex on the 19 hex board."""
+    q, r, s = coords.BOARD.hex(hex_id).cube
+    cube_to_id = {h.cube: h.id for h in coords.BOARD.hexes}
+    neighbors = []
+    for dq, dr, ds in ((1, -1, 0), (1, 0, -1), (0, 1, -1), (-1, 1, 0), (-1, 0, 1), (0, -1, 1)):
+        nxt = (q + dq, r + dr, s + ds)
+        if nxt in cube_to_id:
+            neighbors.append(cube_to_id[nxt])
+    return neighbors
+
+
+def _tokens_valid(hexes: tuple[BoardHex, ...]) -> bool:
+    """No adjacent 6/8 pair and no identical tokens on touching hexes."""
+    by_id = {h.hex_id: h.token for h in hexes}
+    for h in hexes:
+        if h.token is None:
+            continue
+        for nid in _hex_neighbor_ids(h.hex_id):
+            other = by_id.get(nid)
+            if other is None:
+                continue
+            if h.token in HIGH_TOKENS and other in HIGH_TOKENS:
+                return False
+            if h.token == other:
+                return False
+    return True
+
+
+def _assign_tokens(
+    rng: GameRandom, terrains: list[Terrain],
+) -> tuple[tuple[BoardHex, ...], int]:
+    """Shuffle number tokens onto non desert hexes with placement constraints."""
+    non_desert = [i for i, t in enumerate(terrains) if t is not Terrain.DESERT]
+    robber_hex = -1
+    for attempt in range(_MAX_TOKEN_TRIES):
+        tokens = rng.shuffle(list(NUMBER_TOKENS))
+        assignment = dict(zip(non_desert, tokens))
+        hexes = []
+        for hex_id, terrain in enumerate(terrains):
+            if terrain is Terrain.DESERT:
+                hexes.append(BoardHex(hex_id=hex_id, terrain=terrain, token=None))
+                robber_hex = hex_id
+            else:
+                hexes.append(
+                    BoardHex(hex_id=hex_id, terrain=terrain, token=assignment[hex_id])
+                )
+        if _tokens_valid(tuple(hexes)):
+            return tuple(hexes), robber_hex
+    raise RuntimeError("failed to place number tokens with adjacency constraints")
+
+
 def _place_ports(rng: GameRandom) -> tuple[Port, ...]:
     """Place the nine ports on evenly spaced coastal edges, types shuffled."""
     ring = _coastline_edge_order()
@@ -148,19 +203,6 @@ def generate_board(rng: GameRandom) -> Board:
         terrains.extend([terrain] * n)
     terrains = rng.shuffle(terrains)
 
-    tokens = rng.shuffle(list(NUMBER_TOKENS))
-    token_iter = iter(tokens)
-    hexes = []
-    robber_hex = -1
-    for hex_id in range(coords.NUM_HEXES):
-        terrain = terrains[hex_id]
-        if terrain is Terrain.DESERT:
-            hexes.append(BoardHex(hex_id=hex_id, terrain=terrain, token=None))
-            robber_hex = hex_id
-        else:
-            hexes.append(
-                BoardHex(hex_id=hex_id, terrain=terrain, token=next(token_iter))
-            )
-
+    hexes, robber_hex = _assign_tokens(rng, terrains)
     ports = _place_ports(rng)
-    return Board(hexes=tuple(hexes), ports=ports, robber_hex=robber_hex)
+    return Board(hexes=hexes, ports=ports, robber_hex=robber_hex)

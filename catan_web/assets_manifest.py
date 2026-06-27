@@ -88,6 +88,16 @@ HARBORS = [
     "harbors/150dpi masked/harbor 7.png",
 ]
 
+# Harbor art keyed by port type for the ocean ring tiles.
+HARBOR_BY_PORT = {
+    "generic": "harbors/150dpi masked/harbor.png",
+    "lumber": "harbors/150dpi masked/harbor 1.png",
+    "brick": "harbors/150dpi masked/harbor 2.png",
+    "wool": "harbors/150dpi masked/harbor 3.png",
+    "grain": "harbors/150dpi masked/harbor 4.png",
+    "ore": "harbors/150dpi masked/harbor 5.png",
+}
+
 # Reference and special cards.
 SPECIAL_CARDS = {
     "largest_army": "special_cards/vector/army_card.png",
@@ -110,6 +120,7 @@ def _all_relpaths() -> list[str]:
     paths.append(ROBBER)
     paths.extend(SHEETS.values())
     paths.extend(HARBORS)
+    paths.extend(HARBOR_BY_PORT.values())
     paths.extend(SPECIAL_CARDS.values())
     if LOGO:
         paths.append(LOGO)
@@ -138,6 +149,7 @@ def manifest() -> dict:
         "robber": url_for(ROBBER),
         "sheets": {k: url_for(v) for k, v in SHEETS.items()},
         "harbors": [url_for(v) for v in HARBORS],
+        "harbor_by_port": {k: url_for(v) for k, v in HARBOR_BY_PORT.items()},
         "special_cards": {k: url_for(v) for k, v in SPECIAL_CARDS.items()},
         "logo": url_for(LOGO) if LOGO else None,
     }

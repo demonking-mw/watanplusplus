@@ -17,6 +17,7 @@ from catan_web.engine.legal import Action, ActionType, victory_points
 from catan_web.export.logger import log_action, write_meta
 from catan_web.geometry import board_geometry
 from catan_web.net import protocol as P
+from catan_web.net.history import action_event, chat_event, resource_snapshot
 from catan_web.net.redact import legal_for, view_for_player
 from catan_web.net.rooms import GameError, RoomManager
 
@@ -111,6 +112,14 @@ async def _broadcast_game_over(room):
         await _send_to(s, payload)
 
 
+async def _send_history(room, entry=None):
+    payload = {"type": P.HISTORY, "entries": room.history}
+    if entry is not None:
+        payload["entry"] = entry
+    for s in room.seats:
+        await _send_to(s, payload)
+
+
 @app.websocket("/ws")
 async def ws_game(websocket: WebSocket) -> None:
     await websocket.accept()
@@ -140,18 +149,35 @@ async def ws_game(websocket: WebSocket) -> None:
                     await _broadcast_lobby(room)
                     if room.started:
                         await _send_state_to(room, s.seat)
+                        await _send_history(room)
                 elif mtype == P.START:
                     room = manager.start(code, seat)
+                    start_msg = {
+                        "kind": "action", "seat": seat, "name": room.names[seat],
+                        "text": f"{room.names[seat]} started the game",
+                    }
+                    room.history.append(start_msg)
                     await _broadcast_lobby(room)
                     await _broadcast_state(room)
+                    await _send_history(room, start_msg)
+                elif mtype == P.CHAT:
+                    room, _, text = manager.chat(code, seat, msg.get("text", ""))
+                    entry = chat_event(seat, room.names[seat], text)
+                    room.history.append(entry)
+                    await _send_history(room, entry)
                 elif mtype == P.ACTION:
                     action = _parse_action(msg.get("action", {}))
+                    room_obj = manager.rooms.get(code)
+                    before = resource_snapshot(room_obj.state)
                     room = manager.apply(code, seat, action)
                     try:
                         log_action(room.game_id, room.seq, seat, action, room.state)
                     except Exception:
                         pass
+                    entry = action_event(room, seat, action, before)
+                    room.history.append(entry)
                     await _broadcast_state(room)
+                    await _send_history(room, entry)
                     if room.state.phase.value == "game_over":
                         await _broadcast_game_over(room)
                         try:
